@@ -22,7 +22,7 @@ struct GravitationalConfig
 struct DirectionalConfig
 {
     double acceleration{};
-    vec3w direction{};
+    vec3d direction{};
 };
 
 struct ForceConfig

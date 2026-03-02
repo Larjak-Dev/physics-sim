@@ -1,11 +1,11 @@
 
 #pragma once
 
-namespace phys
+namespace phys::slides
 {
 class Slide
 {
-    virtual void tickContent();
-    virtual void tickRightBar();
+    virtual void tickContent() = 0;
+    virtual void tickRightBar() = 0;
 };
-} // namespace phys
+} // namespace phys::slides

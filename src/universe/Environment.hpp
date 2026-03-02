@@ -11,10 +11,12 @@ class EnvironmentActive;
 
 struct Body
 {
-    vec3w pos{};
-    vec3w vel{};
+    vec3d pos{};
+    vec3d vel{};
     double mass{};
 };
+
+using Bodies = std::vector<Body>;
 
 struct Property
 {
@@ -22,11 +24,14 @@ struct Property
     double radius;
 };
 
+using Properties = std::vector<Property>;
+
 class EnvironmentBase
 {
   public:
     std::vector<Body> bodies;
 
+    EnvironmentBase() = default;
     EnvironmentBase(const Environment &env);
     EnvironmentBase(const EnvironmentActive &envActive);
 };
@@ -36,7 +41,8 @@ class Environment : public EnvironmentBase
   public:
     std::vector<Property> properties;
 
-    Environment(const EnvironmentBase &env);
+    Environment() = default;
+    Environment(const EnvironmentBase &env, std::vector<Property> properties);
     Environment(const EnvironmentActive &envActive);
 
     void addBody(Body body, Property property);
@@ -49,6 +55,7 @@ class Environment : public EnvironmentBase
 class EnvironmentActive
 {
   public:
+    EnvironmentActive() = default;
     EnvironmentActive(const EnvironmentActive &other);
     EnvironmentActive(const Environment &env);
 
@@ -57,7 +64,9 @@ class EnvironmentActive
 
   private:
     Environment env;
-    std::mutex lock;
+    mutable std::mutex mtx;
+    friend Environment;
+    friend EnvironmentBase;
 };
 
 } // namespace phys
