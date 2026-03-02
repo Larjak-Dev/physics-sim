@@ -1,0 +1,27 @@
+---
+# BasedOnStyle: Microsoft
+Language: Cpp
+
+# Indentation and Width
+BasedOnStyle: Microsoft
+IndentWidth: 4
+ColumnLimit: 120
+UseTab: Never
+
+# Brace Wrapping
+BreakBeforeBraces: Allman
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+
+# Pointer and Reference Alignment
+PointerAlignment: Right
+
+# Spacing
+SpaceAfterControlStatementKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeParens: ControlStatements
+
+# Miscellaneous
+SortIncludes: true
+Standard: Latest
+---
