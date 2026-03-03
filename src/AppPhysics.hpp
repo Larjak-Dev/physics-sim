@@ -9,6 +9,8 @@ namespace phys
 class PhysicApp : public App
 {
   public:
+    using App::App;
+
   protected:
     void tick() override;
 

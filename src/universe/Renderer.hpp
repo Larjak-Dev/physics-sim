@@ -1,5 +1,6 @@
 
 #pragma once
+#include "../gl/GladWrap.hpp"
 #include "Camera.hpp"
 #include "Environment.hpp"
 #include "SFML/System/Vector2.hpp"
@@ -21,15 +22,29 @@ struct TransformWorld
 };
 
 TransformWorld createTransformWorld2D(const Camera &cam, vec2u res);
+TransformWorld createTransformWorld3D(const Camera &cam, vec2u res);
 
-class RenderConfig
+mat4f createRenderMatrixPersp();
+mat4f createBodyMatrix();
+
+//////////////
+/// models
+/////////////
+
+////////////
+/// Renderer
+////////////
+
+void load();
+
+class Renderer
 {
   public:
-    void render(sf::RenderTarget &target, sf::Vector2u size, const std::shared_ptr<EnvironmentActive> env,
-                const std::shared_ptr<Camera> cam);
+    void render(sf::RenderTarget &target, sf::Vector2u size, const Environment &env, const Camera &cam);
 
   private:
-    void render2D(sf::RenderTarget &target, sf::Vector2u size, const Environment &env, const Camera &cam);
+    void render2D(sf::RenderTarget &target, sf::Vector2u size, const Environment &env, const Camera &cam,
+                  const gl::Shader &shader);
 
     // void render3D(sf::RenderTarget& target, sf::Vector2u size, const Environment& env, const Camera& cam);
 };

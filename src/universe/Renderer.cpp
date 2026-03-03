@@ -1,5 +1,9 @@
 #include "Renderer.hpp"
+#include "SFML/Graphics/RenderTarget.hpp"
+#include "SFML/System/Vector2.hpp"
+#include "gl/ResourcesGl.hpp"
 #include "glm/trigonometric.hpp"
+#include <glad/glad.h>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/scalar_constants.hpp>
@@ -37,5 +41,35 @@ TransformWorld phys::createTransformWorld3D(const Camera &cam, vec2u res)
     auto eye = vec4d(cam.center, 1.0) + camRotation * vec4d(0.0, 0.0, cam.distance, 1.0);
     t.v = glm::lookAt(vec3d(eye), cam.center, vec3d(0.0, 0.0, 1.0));
 
-    auto t.p = glm::perspective();
+    // t.p = glm::perspective();
+}
+
+void Renderer::render(sf::RenderTarget &target, sf::Vector2u size, const Environment &env, const Camera &cam)
+{
+
+    auto &shader = gl::getResourcesGL()->mainShader;
+    render2D(target, size, env, cam, shader);
+}
+
+void Renderer::render2D(sf::RenderTarget &target, sf::Vector2u size, const Environment &env, const Camera &cam,
+                        const gl::Shader &shader)
+{
+    if (!target.setActive(true))
+    {
+        return;
+    }
+    auto viewport = target.getSize();
+    glViewport(0, 0, viewport.x, viewport.y);
+
+    glUseProgram(shader.getShaderHandle());
+
+    glClearColor(0.5f, 0.5f, 0.2f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    auto &vertexArray = gl::getResourcesGL()->sphere;
+    vertexArray.render();
+
+    glUseProgram(0);
+
+    target.popGLStates();
 }

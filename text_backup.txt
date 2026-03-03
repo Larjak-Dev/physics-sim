@@ -1,0 +1,46 @@
+#include "GladWrap.hpp"
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
+using namespace phys::gl;
+
+Texture::Texture(vec2u size)
+{
+    resize(size);
+}
+Texture::~Texture()
+{
+}
+
+void Texture::resize(vec2u size)
+{
+    glGenTextures(1, &this->texture_id);
+}
+void Texture::bindUnit(uint32_t unit) const
+{
+}
+
+void Texture::loadFromImage(std::string path)
+{
+    int width, height, nrChannels;
+    unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
+}
+
+TextureRender::TextureRender(vec2u size) : Texture(size)
+{
+}
+
+TextureRender::~TextureRender()
+{
+    Texture::~Texture();
+}
+
+void TextureRender::resize(vec2u size)
+{
+}
+void TextureRender::bindUnit(uint32_t unit)
+{
+}
+void TextureRender::bindFrame()
+{
+}
