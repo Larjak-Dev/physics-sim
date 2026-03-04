@@ -3,48 +3,45 @@
 #include "../gl/GladWrap.hpp"
 #include "Camera.hpp"
 #include "Environment.hpp"
-#include "SFML/System/Vector2.hpp"
 #include <SFML/Graphics/RenderTarget.hpp>
-#include <glm/matrix.hpp>
 #include <memory>
 
 namespace phys
 {
 
-using mat4d = glm::mat<4, 4, double>;
-using mat4f = glm::mat<4, 4, float>;
-
-struct TransformWorld
+struct Transform2D
 {
+    Camera camera;
+    vec2u res;
+
     mat4d v;
     mat4d p;
     mat4d vp;
+
+    mat4d p_inverse;
+    mat4d vp_inverse;
+
+    mat4f p_gl;
+
+    Transform2D();
+    void recalculate(const Camera &cam, vec2u res);
 };
-
-TransformWorld createTransformWorld2D(const Camera &cam, vec2u res);
-TransformWorld createTransformWorld3D(const Camera &cam, vec2u res);
-
-mat4f createRenderMatrixPersp();
-mat4f createBodyMatrix();
-
-//////////////
-/// models
-/////////////
 
 ////////////
 /// Renderer
 ////////////
 
-void load();
-
 class Renderer
 {
   public:
-    void render(sf::RenderTarget &target, sf::Vector2u size, const Environment &env, const Camera &cam);
+    Transform2D transform2D;
+
+    void render(sf::RenderTarget &target, const std::shared_ptr<EnvironmentActive> env,
+                const std::shared_ptr<Camera> cam);
+    void render(sf::RenderTarget &target, const Environment &env, const Camera &cam);
 
   private:
-    void render2D(sf::RenderTarget &target, sf::Vector2u size, const Environment &env, const Camera &cam,
-                  const gl::Shader &shader);
+    void render2D(sf::RenderTarget &target, const Environment &env, const Camera &cam, const gl::Shader &shader);
 
     // void render3D(sf::RenderTarget& target, sf::Vector2u size, const Environment& env, const Camera& cam);
 };

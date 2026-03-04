@@ -12,8 +12,7 @@ int main()
     settings.minorVersion = 6;
     settings.attributeFlags = sf::ContextSettings::Default;
 
-    phys::PhysicApp app(sf::VideoMode({800, 500}), "PhysicApp", sf::Style::Titlebar | sf::Style::Close,
-                        sf::State::Windowed, settings);
+    phys::PhysicApp app(settings);
 
     app.start();
 

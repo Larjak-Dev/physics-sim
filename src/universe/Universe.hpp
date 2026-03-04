@@ -14,7 +14,7 @@ class Universe
   public:
     std::shared_ptr<Camera> camera;
     std::shared_ptr<EnvironmentActive> env;
-    Renderer render_config;
+    Renderer renderer;
 
     ForceConfig force_config;
     StepConfig step_config;

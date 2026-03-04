@@ -1,7 +1,7 @@
 
 #pragma once
 #include "Slide.hpp"
-#include "panels/PanelRender.hpp"
+#include "panels/PanelTexure.hpp"
 
 namespace phys::slides
 {
@@ -12,7 +12,8 @@ class Simulator : public Slide
     void tickRightBar();
 
   private:
-    panels::PanelRender review;
-    panels::PanelRender simulator;
+    panels::PanelScene reviewPanel;
+
+    panels::PanelScene simulator;
 };
 } // namespace phys::slides

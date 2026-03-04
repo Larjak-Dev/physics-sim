@@ -9,12 +9,13 @@ namespace phys
 class PhysicApp : public App
 {
   public:
-    using App::App;
+    PhysicApp(sf::ContextSettings settings);
 
   protected:
     void tick() override;
 
   private:
+    std::shared_ptr<Universe> universe;
     slides::Simulator simulatorSlide;
 };
 } // namespace phys

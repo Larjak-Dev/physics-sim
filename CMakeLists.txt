@@ -6,7 +6,7 @@ project(PhysicsSim
     LANGUAGES C CXX
 )
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 #Fetch libraries
@@ -81,16 +81,17 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 # 5. Resource Copying Logic
-set(RES_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/resources")
+set(RES_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 if(EXISTS "${RES_FOLDER}")
     message(STATUS "Resources found. Setting up sync to build directory.")
-    add_custom_command(
-        TARGET ${PROJECT_NAME} POST_BUILD
+    add_custom_target(sync_assets ALL
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${RES_FOLDER}"
-            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/resources"
+            "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
         COMMENT "Syncing resources to build directory..."
+        VERBATIM
     )
+    add_dependencies(${PROJECT_NAME} sync_assets)
 endif()
 
 # 6. Compiler Warnings

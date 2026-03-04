@@ -21,29 +21,27 @@ using Bodies = std::vector<Body>;
 struct Property
 {
     Color color;
-    double radius;
+    vec3d size{1.0, 1.0, 1.0};
 };
 
 using Properties = std::vector<Property>;
 
-class EnvironmentBase
+struct EnvironmentBase
 {
-  public:
     std::vector<Body> bodies;
 
     EnvironmentBase() = default;
-    EnvironmentBase(const Environment &env);
-    EnvironmentBase(const EnvironmentActive &envActive);
+    explicit EnvironmentBase(const Environment &env);
+    explicit EnvironmentBase(const EnvironmentActive &envActive);
 };
 
-class Environment : public EnvironmentBase
+struct Environment : public EnvironmentBase
 {
-  public:
     std::vector<Property> properties;
 
     Environment() = default;
     Environment(const EnvironmentBase &env, std::vector<Property> properties);
-    Environment(const EnvironmentActive &envActive);
+    explicit Environment(const EnvironmentActive &envActive);
 
     void addBody(Body body, Property property);
 };
@@ -56,7 +54,7 @@ class EnvironmentActive
 {
   public:
     EnvironmentActive() = default;
-    EnvironmentActive(const EnvironmentActive &other);
+    explicit EnvironmentActive(const EnvironmentActive &other);
     EnvironmentActive(const Environment &env);
 
     void setEnvironment_safe(const EnvironmentBase &env);

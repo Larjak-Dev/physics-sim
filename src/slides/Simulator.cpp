@@ -1,12 +1,11 @@
 #include "Simulator.hpp"
 #include "imgui.h"
-#include "panels/PanelRender.hpp"
 using namespace phys::slides;
 
 void Simulator::tickContent()
 {
-    ImGui::Begin("Preview");
-    this->review.update();
+    ImGui::Begin("Preview", nullptr);
+    this->reviewPanel.update(*this->universe);
     ImGui::End();
 }
 

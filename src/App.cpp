@@ -4,6 +4,7 @@
 #include "gl/ResourcesGl.hpp"
 #include "imgui-SFML.h"
 #include "imgui.h"
+#include "tools/Debug.hpp"
 #include "tools/Error.hpp"
 #include <cassert>
 #include <glad/glad.h>
@@ -16,15 +17,30 @@ App::App(sf::VideoMode videoMode, std::string title, std::uint32_t style, sf::St
 {
 }
 
-void App::start()
+void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
+                                const GLchar *message, const void *userParam)
+{
+    auto isErrorStr = type == GL_DEBUG_TYPE_ERROR ? "**GL ERROR**" : "";
+    // showMessageF("GL CALLBACK: {}, type = {}, severity = {}, message = {}", isErrorStr, type, severity, message);
+}
+
+void loadGlad()
 {
 
     if (!gladLoadGLLoader((GLADloadproc)sf::Context::getFunction))
     {
-        showMessage("Unable to load Glad!");
+
         return;
     }
 
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageCallback(MessageCallback, 0);
+}
+
+void App::start()
+{
+    loadGlad();
     this->resourcesGl = std::make_shared<gl::ResourcesGl>();
     gl::setResourcesGL(this->resourcesGl);
 
@@ -36,6 +52,8 @@ void App::start()
     while (this->app_window.isOpen())
     {
         _pollEvents();
+        if (!this->app_window.isOpen())
+            break;
         _tick();
         _render();
     }
@@ -59,6 +77,9 @@ void App::_tick()
     ImGui::SFML::Update(this->app_window, this->delta_clock.restart());
     this->tick();
     ImGui::ShowDemoWindow();
+    ImGui::Begin("Debug Window");
+    phys::updateDebug();
+    ImGui::End();
 }
 void App::_render()
 {

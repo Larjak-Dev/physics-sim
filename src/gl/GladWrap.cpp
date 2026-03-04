@@ -1,4 +1,6 @@
 // FORWARD DECLARATION HANDLING
+#include "glm/fwd.hpp"
+#include "tools/Units.hpp"
 #define PAR_SHAPES_IMPLEMENTATION
 #include <par_shapes.h>
 
@@ -9,6 +11,7 @@
 #include <glad/glad.h>
 
 #include <fstream>
+#include <ranges>
 #include <sstream>
 
 #include "../tools/Error.hpp"
@@ -46,10 +49,11 @@ void Texture::bindUnit(GLuint unit) const
 
 void Texture::loadFromImage(std::string path)
 {
-    int width, height, nrChannels;
-    unsigned char *data = stbi_load(path.c_str(), &width, &height, &nrChannels, 0);
-    if (data)
+    sf::Image image(path);
+    if (auto data = image.getPixelsPtr())
     {
+        auto width = image.getSize().x;
+        auto height = image.getSize().y;
         resize({width, height});
         glTextureSubImage2D(this->texture_id, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
         glGenerateTextureMipmap(this->texture_id);
@@ -61,8 +65,6 @@ void Texture::loadFromImage(std::string path)
         glClearTexImage(this->texture_id, 0, GL_RGBA, GL_FLOAT, clearColor);
         showMessage("Failed To Load Texture");
     }
-
-    stbi_image_free(data);
 }
 
 TextureRender::TextureRender(vec2u size) : Texture()
@@ -113,6 +115,16 @@ GLuint createShaderProgram(const std::string &vertSrc, const std::string &fragSr
     glAttachShader(shader_program, vertex);
     glAttachShader(shader_program, frag);
     glLinkProgram(shader_program);
+
+    GLint success;
+    glGetProgramiv(shader_program, GL_LINK_STATUS, &success);
+
+    if (!success)
+    {
+        char infoLog[512];
+        glGetProgramInfoLog(shader_program, 512, NULL, infoLog);
+        phys::showMessageF("Failed to link shader! Info: {}", infoLog);
+    }
 
     glDeleteShader(vertex);
     glDeleteShader(frag);
@@ -182,6 +194,46 @@ void VertexArray::bufferMesh(par_shapes_mesh *mesh)
 
     this->indices = mesh->ntriangles * 3;
 }
+
+void VertexArray::bufferLines(const std::vector<vec3f> points)
+{
+    glDeleteVertexArrays(1, &this->VAO);
+    glDeleteBuffers(1, &this->VBO);
+    glDeleteBuffers(1, &this->EBO);
+
+    glCreateVertexArrays(1, &this->VAO);
+    glCreateBuffers(1, &this->VBO);
+
+    glNamedBufferStorage(this->VBO, points.size() * sizeof(phys::vec3f), points.data(), 0);
+
+    glVertexArrayVertexBuffer(this->VAO, 0, this->VBO, 0, sizeof(phys::vec3f));
+
+    glEnableVertexArrayAttrib(this->VAO, 0);
+    glVertexArrayAttribFormat(this->VAO, 0, 3, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribBinding(this->VAO, 0, 0);
+
+    this->indices = points.size();
+}
+
+void VertexArray::bufferLines(int x, int y, int z)
+{
+    const float difx = 2.0f / x;
+    const float dify = 2.0f / y;
+    const float difz = 2.0f / z;
+    std::vector<vec3f> points;
+    for (int i : std::views::iota(0, x))
+    {
+        points.push_back(vec3f(-1 + i * difx, -1.0f, 0.0f));
+        points.push_back(vec3f(-1 + i * difx, 1.0f, 0.0f));
+    }
+    for (int i : std::views::iota(0, y))
+    {
+        points.push_back(vec3f(-1.0f, -1.0f + i * dify, 0.0f));
+        points.push_back(vec3f(1.0f, -1.0f + i * dify, 0.0f));
+    }
+    bufferLines(points);
+}
+
 void VertexArray::bufferSphere(int detail)
 {
     auto *mesh = par_shapes_create_parametric_sphere(detail, detail);
@@ -193,5 +245,11 @@ void VertexArray::render()
 {
     glBindVertexArray(this->VAO);
     glDrawElements(GL_TRIANGLES, this->indices, GL_UNSIGNED_SHORT, nullptr);
+    glBindVertexArray(0);
+}
+void VertexArray::renderLines()
+{
+    glBindVertexArray(this->VAO);
+    glDrawArrays(GL_LINES, 0, this->indices);
     glBindVertexArray(0);
 }

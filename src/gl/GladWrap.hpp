@@ -41,7 +41,7 @@ class TextureRender : public Texture
     void bindFrame();
 
   private:
-    uint32_t frameBuffer;
+    uint32_t frameBuffer{0};
 };
 
 class Shader
@@ -55,7 +55,7 @@ class Shader
     Shader &operator=(const Shader &) = delete;
 
   private:
-    uint32_t shader_program;
+    uint32_t shader_program{0};
 };
 
 class VertexArray
@@ -69,12 +69,15 @@ class VertexArray
 
     void bufferMesh(par_shapes_mesh *mesh);
     void bufferSphere(int detail);
+    void bufferLines(const std::vector<vec3f> points);
+    void bufferLines(int x, int y, int z);
 
     void render();
+    void renderLines();
 
   private:
-    uint32_t VAO, VBO, EBO;
-    uint32_t indices;
+    uint32_t VAO{0}, VBO{0}, EBO{0};
+    uint32_t indices{0};
 };
 
 } // namespace phys::gl
