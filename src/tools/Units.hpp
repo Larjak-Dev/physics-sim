@@ -9,31 +9,13 @@ struct ImVec2;
 
 namespace phys
 {
-struct vec4d : public glm::vec<4, double>
-{
-    using glm::dvec4::dvec4;
-};
-struct vec3d : public glm::vec<3, double>
-{
-    using glm::dvec3::dvec3;
-};
+using vec4d = glm::dvec4;
+using vec3d = glm::dvec3;
+using vec2d = glm::dvec2;
+using vec4f = glm::fvec4;
+using vec3f = glm::fvec3;
 
-struct vec2d : public glm::vec<2, double>
-{
-    using glm::dvec2::dvec2;
-};
-
-struct vec4f : public glm::vec<4, float>
-{
-    using glm::fvec4::fvec4;
-};
-
-struct vec3f : public glm::vec<3, float>
-{
-    using glm::fvec3::fvec3;
-};
-
-struct vec2f : public glm::vec<2, float>
+struct vec2f : public glm::fvec2
 {
     using glm::fvec2::fvec2;
     vec2f(ImVec2 vec);
@@ -44,7 +26,7 @@ struct vec2f : public glm::vec<2, float>
     operator ImVec2() const;
 };
 
-struct vec2u : public glm::vec<2, unsigned int>
+struct vec2u : public glm::uvec2
 {
     using glm::uvec2::uvec2;
     inline vec2u(const sf::Vector2u &other)

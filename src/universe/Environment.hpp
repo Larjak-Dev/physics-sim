@@ -12,8 +12,10 @@ class EnvironmentActive;
 struct Body
 {
     vec3d pos{};
+    vec3d prev_pos{};
     vec3d vel{};
     double mass{};
+    uint16_t id;
 };
 
 using Bodies = std::vector<Body>;

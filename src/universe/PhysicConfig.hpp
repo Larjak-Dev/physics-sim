@@ -10,32 +10,34 @@ namespace phys
 ////////////
 enum ForceType
 {
-    Gravitational,
-    Directional
+    Newtonian,
+    FreeFall
 };
 
-struct GravitationalConfig
+struct NewtonianConfig
 {
     double G{};
 };
 
-struct DirectionalConfig
+struct FreeFallConfig
 {
-    double acceleration{};
-    vec3d direction{};
+    double g{};
 };
 
 struct ForceConfig
 {
     ForceType force_type;
-    std::variant<GravitationalConfig, DirectionalConfig> force_config_variant;
+    NewtonianConfig newtonian_config;
+    FreeFallConfig freefall_config;
 };
 /////////////
 /// StepConfig
 /////////////
 enum StepType
 {
-    Euler
+    ImplicitEuler,
+    Verlet,
+    RK4
 };
 
 struct StepConfig
