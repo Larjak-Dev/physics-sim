@@ -8,8 +8,9 @@ namespace phys
 ////////////
 // ForceConfig
 ////////////
-enum ForceType
+enum class ForceType
 {
+    Null,
     Newtonian,
     FreeFall
 };
@@ -33,8 +34,9 @@ struct ForceConfig
 /////////////
 /// StepConfig
 /////////////
-enum StepType
+enum class StepType
 {
+    Null,
     ImplicitEuler,
     Verlet,
     RK4

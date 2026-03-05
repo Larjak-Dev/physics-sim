@@ -14,15 +14,15 @@ struct Body
     vec3d pos{};
     vec3d prev_pos{};
     vec3d vel{};
-    double mass{};
-    uint16_t id;
+    double mass{1.0};
+    uint16_t id{0};
 };
 
 using Bodies = std::vector<Body>;
 
 struct Property
 {
-    Color color;
+    Color color{};
     vec3d size{1.0, 1.0, 1.0};
 };
 
@@ -31,6 +31,7 @@ using Properties = std::vector<Property>;
 struct EnvironmentBase
 {
     std::vector<Body> bodies;
+    double passed_time{};
 
     EnvironmentBase() = default;
     explicit EnvironmentBase(const Environment &env);
@@ -45,6 +46,7 @@ struct Environment : public EnvironmentBase
     Environment(const EnvironmentBase &env, std::vector<Property> properties);
     explicit Environment(const EnvironmentActive &envActive);
 
+    uint16_t next_id{1};
     void addBody(Body body, Property property);
 };
 

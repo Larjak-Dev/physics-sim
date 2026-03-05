@@ -16,8 +16,9 @@ class Universe
     std::shared_ptr<EnvironmentActive> env;
     Renderer renderer;
 
-    ForceConfig force_config;
-    StepConfig step_config;
+    PhysicConfig physicConfig;
+
+    Universe copy();
 };
 
 } // namespace phys

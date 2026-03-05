@@ -19,7 +19,7 @@ struct StepBuffer
     std::vector<Derivates> der_2;
     std::vector<Derivates> der_3;
     std::vector<Derivates> der_4;
-    std::size_t size;
+    std::size_t size{0};
     void buffer(std::size_t size);
 };
 
@@ -35,6 +35,5 @@ class PhysicFunctions
     StepFunction step;
 
     PhysicFunctions(PhysicConfig config);
-    EnvironmentBase &&stepEnv(const EnvironmentBase &env, double delta_time, StepBuffer &buffer);
 };
 } // namespace phys

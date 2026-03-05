@@ -75,8 +75,18 @@ Body implicitEulerBodyStep(const Body &body, double delta_time, const Environmen
 
 StepFunction createImplicitEulerStepFunction(AccelerationFunction accelerationFunction)
 {
-    return StepFunction([accelerationFunction](const EnvironmentBase &env, double delta_time, StepBuffer &buffer)
-                        { return env; });
+    return StepFunction(
+        [accelerationFunction](const EnvironmentBase &env, double delta_time, StepBuffer &buffer)
+        {
+            EnvironmentBase env_new;
+            for (const Body &body : env.bodies)
+            {
+                env_new.bodies.emplace_back(implicitEulerBodyStep(body, delta_time, env, accelerationFunction));
+            }
+
+            env_new.passed_time = env.passed_time + delta_time;
+            return env_new;
+        });
 }
 
 ////////////////
@@ -101,8 +111,18 @@ Body verletBodyStep(const Body &body, double delta_time, const EnvironmentBase &
 
 StepFunction createVerletStepFunction(AccelerationFunction accelerationFunction)
 {
-    return StepFunction([accelerationFunction](const EnvironmentBase &env, double delta_time, StepBuffer &buffer)
-                        { return env; });
+    return StepFunction(
+        [accelerationFunction](const EnvironmentBase &env, double delta_time, StepBuffer &buffer)
+        {
+            EnvironmentBase env_new;
+            for (const Body &body : env.bodies)
+            {
+                env_new.bodies.emplace_back(verletBodyStep(body, delta_time, env, accelerationFunction));
+            }
+
+            env_new.passed_time = env.passed_time + delta_time;
+            return env_new;
+        });
 }
 
 //////////////////
@@ -174,9 +194,13 @@ StepFunction createRK4StepFunction(AccelerationFunction accelerationFunction)
             const auto env_mid4 = advance(env, derivates_3, delta_time);
             calcDerivates(env_mid4, accelerationFunction, derivates_4);
 
-            return advanceWithSum(env, derivates_1, derivates_2, derivates_3, derivates_4, delta_time);
+            auto env_new = advanceWithSum(env, derivates_1, derivates_2, derivates_3, derivates_4, delta_time);
+            env_new.passed_time += delta_time;
+            return env_new;
         });
 }
+
+// Config
 
 PhysicFunctions::PhysicFunctions(PhysicConfig config)
 {
@@ -188,6 +212,9 @@ PhysicFunctions::PhysicFunctions(PhysicConfig config)
         break;
     case phys::ForceType::Newtonian:
         this->force = createNewtonianForceFunction(config.force_config.newtonian_config.G);
+    default:
+        assert(false && "Unvalid physics config!");
+        break;
     }
 
     this->acceleration = createAccelerationFunction(this->force);
@@ -203,8 +230,8 @@ PhysicFunctions::PhysicFunctions(PhysicConfig config)
     case phys::StepType::RK4:
         this->step = createRK4StepFunction(this->acceleration);
         break;
+    default:
+        assert(false && "Unvalid physics config!");
+        break;
     }
-}
-EnvironmentBase &&PhysicFunctions::stepEnv(const EnvironmentBase &env, double delta_time, StepBuffer &buffer)
-{
 }

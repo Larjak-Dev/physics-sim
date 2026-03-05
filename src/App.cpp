@@ -8,7 +8,6 @@
 #include "tools/Error.hpp"
 #include <cassert>
 #include <glad/glad.h>
-#include <iostream>
 
 using namespace phys;
 

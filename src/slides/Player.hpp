@@ -6,9 +6,10 @@
 
 namespace phys::slides
 {
-class Simulator : public Slide
+class Player : public Slide
 {
   public:
+    Player();
     void tickContent();
     void tickRightBar();
 
@@ -18,5 +19,7 @@ class Simulator : public Slide
 
     phys::Simulator physic_sim;
     std::shared_ptr<phys::Universe> universe_sim;
+    std::shared_ptr<phys::Recording> recording;
+    float timeline_select{0.0f};
 };
 } // namespace phys::slides
