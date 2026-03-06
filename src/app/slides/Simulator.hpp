@@ -1,10 +1,10 @@
 
 #pragma once
+#include "../widgets/Scene.hpp"
 #include "Slide.hpp"
-#include "panels/PanelTexure.hpp"
 #include "physics/Simulator.hpp"
 
-namespace phys::slides
+namespace phys::app
 {
 class Simulator : public Slide
 {
@@ -13,10 +13,12 @@ class Simulator : public Slide
     void tickRightBar();
 
   private:
-    panels::PanelScene reviewPanel;
-    panels::PanelScene simulator;
+    SceneWidget reviewPanel;
+    SceneWidget simulator;
 
     phys::Simulator physic_sim;
     std::shared_ptr<phys::Universe> universe_sim;
+
+    void showConfig();
 };
-} // namespace phys::slides
+} // namespace phys::app

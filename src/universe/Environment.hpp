@@ -1,12 +1,13 @@
 #pragma once
 #include "../tools/Units.hpp"
+#include "PhysicConfig.hpp"
 #include <mutex>
 #include <vector>
 
 namespace phys
 {
 // Predeclerations
-class Environment;
+struct Environment;
 class EnvironmentActive;
 
 struct Body
@@ -16,13 +17,14 @@ struct Body
     vec3d vel{};
     double mass{1.0};
     uint16_t id{0};
+    bool is_locked{false};
 };
 
 using Bodies = std::vector<Body>;
 
 struct Property
 {
-    Color color{};
+    Color color{1.0f, 0, 0, 1.0f};
     vec3d size{1.0, 1.0, 1.0};
 };
 
@@ -31,7 +33,7 @@ using Properties = std::vector<Property>;
 struct EnvironmentBase
 {
     std::vector<Body> bodies;
-    double passed_time{};
+    double passed_time{0.0};
 
     EnvironmentBase() = default;
     explicit EnvironmentBase(const Environment &env);
@@ -41,9 +43,10 @@ struct EnvironmentBase
 struct Environment : public EnvironmentBase
 {
     std::vector<Property> properties;
+    UniverseConfig config;
 
     Environment() = default;
-    Environment(const EnvironmentBase &env, std::vector<Property> properties);
+    Environment(const EnvironmentBase &env, std::vector<Property> properties, UniverseConfig config);
     explicit Environment(const EnvironmentActive &envActive);
 
     uint16_t next_id{1};
@@ -63,6 +66,7 @@ class EnvironmentActive
 
     void setEnvironment_safe(const EnvironmentBase &env);
     EnvironmentBase getEnvironment_safe();
+    std::vector<Property> &getProperties_ref();
 
   private:
     Environment env;

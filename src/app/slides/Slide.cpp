@@ -1,5 +1,5 @@
 #include "Slide.hpp"
-using namespace phys::slides;
+using namespace phys::app;
 
 void Slide::setUniverse(std::shared_ptr<Universe> universe)
 {

@@ -21,11 +21,13 @@ class Recording
 
     const std::vector<phys::EnvironmentBase> &getFrames() const;
 
+    std::unique_ptr<Universe> universe;
+
   private:
-    Universe universe;
     std::atomic_uint status{0};
     std::atomic_uint completion{0};
     std::vector<phys::EnvironmentBase> frames;
+    std::vector<Body> frames_kinematic;
 
     friend Simulator;
 };

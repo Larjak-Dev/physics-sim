@@ -47,22 +47,13 @@ void Transform2D::recalculate(const Camera &cam, vec2u res)
     }
 }
 
-void Renderer::render(sf::RenderTarget &target, const std::shared_ptr<EnvironmentActive> env,
-                      const std::shared_ptr<Camera> cam)
-{
-    if (!env || !cam)
-    {
-        target.clear(sf::Color::Red);
-        return;
-    }
-    render(target, static_cast<Environment>(*env), *cam);
-}
-
-void Renderer::render(sf::RenderTarget &target, const Environment &env, const Camera &cam)
+void Renderer::render(const Environment &env, const Camera &cam, float transparency, Color color_addon)
 {
 
     auto &shader = gl::getResourcesGL()->mainShader;
-    render2D(target, env, cam, shader);
+    glProgramUniform1f(shader.getShaderHandle(), 10, transparency);
+    glProgramUniform4f(shader.getShaderHandle(), 9, color_addon.r, color_addon.g, color_addon.b, color_addon.a);
+    render2D(env, cam, shader);
 }
 
 mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const mat4d &vp_world)
@@ -80,8 +71,27 @@ mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const mat
     return model;
 }
 
-void renderGrid(double exponant, const Camera &cam, const mat4d &vp_world, const gl::Shader &shader)
+void Renderer::renderGrid(double exponant, const Camera &cam, const gl::Shader &shader, Color color, float transparency)
 {
+    assert(this->target);
+    auto &target = *this->target;
+
+    auto viewport = target.getSize();
+    glViewport(0, 0, viewport.x, viewport.y);
+
+    glUseProgram(shader.getShaderHandle());
+
+    mat4f vp_gl = mat4f(1.0f);
+    glProgramUniformMatrix4fv(shader.getShaderHandle(), 0, 1, GL_FALSE, glm::value_ptr(vp_gl));
+
+    glProgramUniform4f(shader.getShaderHandle(), 8, color.r, color.g, color.b, color.a);
+    glProgramUniform4f(shader.getShaderHandle(), 9, color.r, color.g, color.b, color.a);
+    glProgramUniform1f(shader.getShaderHandle(), 10, transparency);
+
+    this->transform2D.recalculate(cam, target.getSize());
+    auto vp_world = this->transform2D.vp;
+
+    // Grid Rendering
     auto &vertexArrayGrid = gl::getResourcesGL()->grid;
     const double scale = std::pow(10, exponant);
 
@@ -90,35 +100,28 @@ void renderGrid(double exponant, const Camera &cam, const mat4d &vp_world, const
     const auto size_world = vec4d{amountGrid / 2.0, amountGrid / 2.0, amountGrid / 2.0, 0.0};
 
     auto model = getModelTransform(center_world, size_world, vp_world);
-    glProgramUniformMatrix4fv(shader.getShaderHandle(), 1, 1, GL_FALSE, glm::value_ptr(model));
+    glProgramUniformMatrix4fv(shader.getShaderHandle(), 4, 1, GL_FALSE, glm::value_ptr(model));
 
     vertexArrayGrid.renderLines();
 }
 
-void Renderer::render2D(sf::RenderTarget &target, const Environment &env, const Camera &cam, const gl::Shader &shader)
+void Renderer::render2D(const Environment &env, const Camera &cam, const gl::Shader &shader)
 {
-    if (!target.setActive(true))
-    {
-        return;
-    }
-    target.pushGLStates();
+    assert(env.properties.size() >= env.bodies.size());
+
+    assert(this->target);
+    auto &target = *this->target;
 
     auto viewport = target.getSize();
     glViewport(0, 0, viewport.x, viewport.y);
 
     glUseProgram(shader.getShaderHandle());
 
-    glClearColor(0.5f, 0.5f, 0.2f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     mat4f vp_gl = mat4f(1.0f);
     glProgramUniformMatrix4fv(shader.getShaderHandle(), 0, 1, GL_FALSE, glm::value_ptr(vp_gl));
 
     this->transform2D.recalculate(cam, target.getSize());
     auto vp_world = this->transform2D.vp;
-
-    // Grid
-    renderGrid(0, cam, vp_world, shader);
 
     // Bodies
     auto &vertexArray = gl::getResourcesGL()->sphere;
@@ -128,12 +131,30 @@ void Renderer::render2D(sf::RenderTarget &target, const Environment &env, const 
         auto size_world = vec4d(env.properties[index].size, 0.0f);
 
         auto model = getModelTransform(pos_world, size_world, vp_world);
-        glProgramUniformMatrix4fv(shader.getShaderHandle(), 1, 1, GL_FALSE, glm::value_ptr(model));
+        glProgramUniformMatrix4fv(shader.getShaderHandle(), 4, 1, GL_FALSE, glm::value_ptr(model));
 
+        auto color = env.properties[index].color;
+        glProgramUniform4f(shader.getShaderHandle(), 8, color.r, color.g, color.b, color.a);
         vertexArray.render();
     }
+}
 
+void Renderer::activate(sf::RenderTarget &target)
+{
+    assert(!this->target);
+    this->target = &target;
+    if (!target.setActive(true))
+    {
+        return;
+    }
+    target.pushGLStates();
+}
+
+void Renderer::deactivate()
+{
+    assert(this->target);
     glUseProgram(0);
 
-    target.popGLStates();
+    target->popGLStates();
+    this->target = nullptr;
 }

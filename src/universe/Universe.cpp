@@ -3,7 +3,13 @@
 
 using namespace phys;
 
-Universe Universe::copy()
+Universe::Universe()
+{
+    this->env = std::make_shared<EnvironmentActive>();
+    this->camera = std::make_shared<Camera>();
+}
+
+Universe Universe::copy() const
 {
     Universe copy = *this;
     copy.env = std::make_shared<EnvironmentActive>(*this->env);

@@ -1,7 +1,10 @@
 #include "Simulator.hpp"
+#include "../widgets/extra.hpp"
 #include "imgui.h"
 #include "tools/Debug.hpp"
-using namespace phys::slides;
+#include "universe/PhysicConfig.hpp"
+#include <utility>
+using namespace phys::app;
 
 void Simulator::tickContent()
 {
@@ -28,7 +31,22 @@ void Simulator::tickContent()
 
 void Simulator::tickRightBar()
 {
+    // Config
     ImGui::Begin("Control Panel");
+
+    ImGui::BeginDisabled(this->physic_sim.isRunningSim());
+
+    static const std::vector<std::pair<phys::StepType, const char *>> methods = {
+        {phys::StepType::ImplicitEuler, "Implicit Euler"},
+        {phys::StepType::Verlet, "Verlet"},
+        {phys::StepType::RK4, "RK4"}};
+    EnumCombo("Step Method", this->universe->physicConfig.step_config.step_type, methods);
+
+    ImGui::InputDouble("Delta Time", &this->universe->physicConfig.step_config.delta_time);
+
+    ImGui::EndDisabled();
+
+    // Simulator Buttons
     if (!this->physic_sim.isRunningSim() && ImGui::Button("Start"))
     {
         this->universe_sim = std::make_shared<Universe>(this->universe->copy());
@@ -51,4 +69,8 @@ void Simulator::tickRightBar()
         }
     }
     ImGui::End();
+}
+
+void showConfig()
+{
 }

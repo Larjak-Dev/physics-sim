@@ -9,7 +9,7 @@
 #include <cassert>
 #include <glad/glad.h>
 
-using namespace phys;
+using namespace phys::app;
 
 App::App(sf::VideoMode videoMode, std::string title, std::uint32_t style, sf::State state, sf::ContextSettings settings)
     : app_window(videoMode, title, style, state, settings)
@@ -48,6 +48,9 @@ void App::start()
         showMessage("Unable to init SFML-ImGui!");
         return;
     }
+
+    init();
+
     while (this->app_window.isOpen())
     {
         _pollEvents();
@@ -76,7 +79,7 @@ void App::_tick()
     ImGui::SFML::Update(this->app_window, this->delta_clock.restart());
     this->tick();
     ImGui::ShowDemoWindow();
-    ImGui::Begin("Debug Window");
+    ImGui::Begin("Debug Panel");
     phys::updateDebug();
     ImGui::End();
 }
@@ -86,6 +89,10 @@ void App::_render()
     ImGui::SFML::Render(this->app_window);
 
     this->app_window.display();
+}
+
+void App::init()
+{
 }
 
 void App::tick()

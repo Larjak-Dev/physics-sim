@@ -60,6 +60,9 @@ AccelerationFunction createAccelerationFunction(ForceFunction forceFunction)
 Body implicitEulerBodyStep(const Body &body, double delta_time, const EnvironmentBase &env,
                            const AccelerationFunction &accelerationFunction)
 {
+    if (body.is_locked)
+        return body;
+
     const auto a_0 = accelerationFunction(body.pos, body, env);
     const auto v_0 = body.vel;
     const auto s_0 = body.pos;
@@ -96,6 +99,8 @@ StepFunction createImplicitEulerStepFunction(AccelerationFunction accelerationFu
 Body verletBodyStep(const Body &body, double delta_time, const EnvironmentBase &env,
                     const AccelerationFunction &accelerationFunction)
 {
+    if (body.is_locked)
+        return body;
 
     const auto a_0 = accelerationFunction(body.pos, body, env);
     const auto s_0 = body.pos;
@@ -145,8 +150,16 @@ void calcDerivates(const EnvironmentBase &env, const AccelerationFunction &accel
 {
     for (auto &&[i, body] : std::views::enumerate(env.bodies))
     {
-        bufferData[i].l = body.vel;
-        bufferData[i].k = accelerationFunction(body.pos, body, env);
+        if (body.is_locked)
+        {
+            bufferData[i].l = vec3d(0.0, 0.0, 0.0);
+            bufferData[i].k = vec3d(0.0, 0.0, 0.0);
+        }
+        else
+        {
+            bufferData[i].l = body.vel;
+            bufferData[i].k = accelerationFunction(body.pos, body, env);
+        }
     }
 }
 

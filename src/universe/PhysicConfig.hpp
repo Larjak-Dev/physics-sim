@@ -1,7 +1,5 @@
 
 #pragma once
-#include "../tools/Units.hpp"
-#include <variant>
 
 namespace phys
 {
@@ -42,6 +40,26 @@ enum class StepType
     RK4
 };
 
+inline const char *getStepMetodStr(StepType type)
+{
+    switch (type)
+    {
+    case StepType::Null:
+        return "Null";
+        break;
+
+    case StepType::ImplicitEuler:
+        return "Implicit Euler";
+        break;
+    case StepType::Verlet:
+        return "Verlet";
+        break;
+    case StepType::RK4:
+        return "RK4";
+        break;
+    }
+}
+
 struct StepConfig
 {
     StepType step_type;
@@ -56,6 +74,22 @@ struct PhysicConfig
 {
     ForceConfig force_config;
     StepConfig step_config;
+};
+
+////////////
+/// Universe Config
+////////////
+
+struct UniverseConfig
+{
+    bool is_calculated{false};
+    ForceConfig force_config;
+
+    // Newtonian
+    double distance_newtonian{1.0};
+    double mass_1_newtonian{1.0};
+    double mass_2_newtonian{1.0};
+    double vel_1_newtonian{1.0};
 };
 
 } // namespace phys

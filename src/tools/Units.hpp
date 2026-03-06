@@ -48,4 +48,6 @@ struct Color
     float r, g, b, a;
 };
 
+inline const double PI = 3.141592653589793;
+
 } // namespace phys

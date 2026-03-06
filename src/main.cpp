@@ -1,6 +1,4 @@
-#include "AppPhysics.hpp"
-#include "SFML/Window/VideoMode.hpp"
-#include "SFML/Window/WindowEnums.hpp"
+#include "app/AppPhysics.hpp"
 #include <iostream>
 
 int main()
@@ -12,7 +10,7 @@ int main()
     settings.minorVersion = 6;
     settings.attributeFlags = sf::ContextSettings::Default;
 
-    phys::PhysicApp app(settings);
+    phys::app::PhysicApp app(settings);
 
     app.start();
 

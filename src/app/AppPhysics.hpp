@@ -4,8 +4,15 @@
 #include "slides/Player.hpp"
 #include "slides/Simulator.hpp"
 
-namespace phys
+namespace phys::app
 {
+
+enum class SlideType
+{
+    Editor,
+    Simulator,
+    Player
+};
 
 class PhysicApp : public App
 {
@@ -13,12 +20,15 @@ class PhysicApp : public App
     PhysicApp(sf::ContextSettings settings);
 
   protected:
+    void init() override;
     void tick() override;
 
   private:
+    SlideType selectedSlide;
     std::shared_ptr<Universe> universe;
-    slides::Simulator simulatorSlide;
+    Simulator simulatorSlide;
+    Player playerSlide;
 
-    slides::Player playerSlide;
+    void buildDock(int dock_id);
 };
-} // namespace phys
+} // namespace phys::app

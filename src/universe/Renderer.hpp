@@ -35,13 +35,18 @@ class Renderer
 {
   public:
     Transform2D transform2D;
+    sf::RenderTarget *target;
 
-    void render(sf::RenderTarget &target, const std::shared_ptr<EnvironmentActive> env,
-                const std::shared_ptr<Camera> cam);
-    void render(sf::RenderTarget &target, const Environment &env, const Camera &cam);
+    void activate(sf::RenderTarget &target);
+    void deactivate();
+
+    void renderGrid(double exponant, const Camera &cam, const gl::Shader &shader,
+                    Color color = Color(1.0, 1.0, 1.0, 1.0), float transarency = 1.0f);
+    void render(const Environment &env, const Camera &cam, float transarency = 1.0f,
+                Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
 
   private:
-    void render2D(sf::RenderTarget &target, const Environment &env, const Camera &cam, const gl::Shader &shader);
+    void render2D(const Environment &env, const Camera &cam, const gl::Shader &shader);
 
     // void render3D(sf::RenderTarget& target, sf::Vector2u size, const Environment& env, const Camera& cam);
 };

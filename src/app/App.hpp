@@ -1,11 +1,11 @@
 
 #pragma once
-#include "SFML/Window/VideoMode.hpp"
-#include "gl/ResourcesGl.hpp"
+#include "../gl/ResourcesGl.hpp"
 #include <SFML/Graphics.hpp>
+#include <SFML/Window/VideoMode.hpp>
 #include <cstdint>
 
-namespace phys
+namespace phys::app
 {
 
 class App
@@ -23,6 +23,7 @@ class App
     // Window Variables
     sf::Clock delta_clock;
 
+    virtual void init();
     virtual void tick();
 
   private:
@@ -32,4 +33,4 @@ class App
     void _pollEvents();
 };
 
-} // namespace phys
+} // namespace phys::app

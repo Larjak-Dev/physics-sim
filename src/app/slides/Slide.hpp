@@ -1,7 +1,7 @@
-#include "../universe/Universe.hpp"
+#include "../../universe/Universe.hpp"
 #pragma once
 
-namespace phys::slides
+namespace phys::app
 {
 class Slide
 {
@@ -14,4 +14,4 @@ class Slide
   protected:
     std::shared_ptr<phys::Universe> universe;
 };
-} // namespace phys::slides
+} // namespace phys::app

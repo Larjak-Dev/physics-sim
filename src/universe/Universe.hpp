@@ -18,7 +18,8 @@ class Universe
 
     PhysicConfig physicConfig;
 
-    Universe copy();
+    Universe();
+    Universe copy() const;
 };
 
 } // namespace phys

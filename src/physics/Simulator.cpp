@@ -1,4 +1,5 @@
 #include "Simulator.hpp"
+#include "Kinematics.hpp"
 #include "physics/PhysicFunctions.hpp"
 #include "tools/Error.hpp"
 #include <mutex>
@@ -65,6 +66,9 @@ void Simulator::startSim(std::shared_ptr<Universe> universe)
         return;
     }
 
+    assert(universe);
+    assert(universe->env);
+
     if (this->thread_sim.joinable())
         this->thread_sim.join();
 
@@ -103,6 +107,10 @@ void Simulator::startPreview(const Universe &universe, std::shared_ptr<Recording
         return;
     }
 
+    assert(recording);
+
+    recording->universe = std::make_unique<Universe>(universe.copy());
+
     Environment env = static_cast<Environment>(*universe.env);
     recording->frames.emplace_back(env);
 
@@ -110,11 +118,19 @@ void Simulator::startPreview(const Universe &universe, std::shared_ptr<Recording
     const double delta_time = universe.physicConfig.step_config.delta_time;
     const double total_time = universe.physicConfig.step_config.total_time;
 
+    // Kinematics
+    const bool calculate_kinematic = env.config.is_calculated;
+    const auto config_kinemtic = env.config;
+    if (calculate_kinematic)
+    {
+        recording->frames_kinematic.emplace_back(phys::calcBody(config_kinemtic, env.passed_time));
+    }
+
     if (this->thread_preview.joinable())
         this->thread_preview.join();
 
     this->thread_preview = std::thread(
-        [this, recording, physic_functions, delta_time, total_time]()
+        [this, recording, physic_functions, delta_time, total_time, calculate_kinematic, config_kinemtic]()
         {
             recording->status = 2;
             this->running_preview = true;
@@ -132,6 +148,12 @@ void Simulator::startPreview(const Universe &universe, std::shared_ptr<Recording
                 const auto env_prev = recording->frames.back();
                 const auto env_new = physic_functions.step(env_prev, delta_time, step_buffer);
                 recording->frames.emplace_back(env_new);
+
+                if (calculate_kinematic)
+                {
+                    recording->frames_kinematic.emplace_back(
+                        phys::calcBody(config_kinemtic, recording->frames.back().passed_time));
+                }
             }
 
             recording->status = 3;
