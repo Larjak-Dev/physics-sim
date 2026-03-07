@@ -15,6 +15,12 @@ include(FetchContent)
 #DECLARE
 
 FetchContent_Declare(
+    OpenXLSX
+    GIT_REPOSITORY https://github.com/troldal/OpenXLSX.git
+    GIT_TAG        master
+)
+
+FetchContent_Declare(
     glm
     GIT_REPOSITORY https://github.com/g-truc/glm.git
     GIT_TAG        1.0.3
@@ -40,6 +46,8 @@ FetchContent_Declare(
 )
 
 #FETCH
+message(STATUS "Fetching OpenXLSX")
+FetchContent_MakeAvailable(OpenXLSX)
 message(STATUS "Fetching glm")
 FetchContent_MakeAvailable(glm)
 message(STATUS "Fetching imgui...")
@@ -78,6 +86,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     SFML::Graphics
     ImGui-SFML::ImGui-SFML
     glm::glm
+    OpenXLSX::OpenXLSX
 )
 
 # 5. Resource Copying Logic
@@ -106,3 +115,11 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
     DEBUG_POSTFIX "d"
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+# 8. Create Excel Output Directory
+add_custom_target(create_excel_output ALL
+    COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:${PROJECT_NAME}>/Excel_Output"
+    COMMENT "Creating Excel_Output directory..."
+    VERBATIM
+)
+add_dependencies(${PROJECT_NAME} create_excel_output)

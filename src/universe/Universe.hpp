@@ -20,6 +20,8 @@ class Universe
 
     Universe();
     Universe copy() const;
+
+    void prepare();
 };
 
 } // namespace phys

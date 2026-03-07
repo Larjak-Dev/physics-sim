@@ -6,9 +6,6 @@ namespace phys::app
 class Slide
 {
   public:
-    virtual void tickContent() = 0;
-    virtual void tickRightBar() = 0;
-
     void setUniverse(std::shared_ptr<Universe> universe);
 
   protected:

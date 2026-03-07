@@ -1,6 +1,7 @@
 
 #pragma once
 #include "App.hpp"
+#include "slides/Editor.hpp"
 #include "slides/Player.hpp"
 #include "slides/Simulator.hpp"
 
@@ -26,6 +27,7 @@ class PhysicApp : public App
   private:
     SlideType selectedSlide;
     std::shared_ptr<Universe> universe;
+    Editor editorSlide;
     Simulator simulatorSlide;
     Player playerSlide;
 

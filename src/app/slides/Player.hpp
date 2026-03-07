@@ -30,5 +30,7 @@ class Player : public Slide
 
     void multipleScenes();
     void almagationScene();
+
+    void saveAsExcel();
 };
 } // namespace phys::app

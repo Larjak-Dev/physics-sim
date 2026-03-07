@@ -3,9 +3,13 @@
 #include "../../tools/Language.hpp"
 #include "../widgets/extra.hpp"
 #include "imgui.h"
+#include "physics/Kinematics.hpp"
 #include "tools/Debug.hpp"
 #include "universe/Camera.hpp"
+#include "universe/Environment.hpp"
 #include "universe/PhysicConfig.hpp"
+#include <OpenXLSX.hpp>
+#include <filesystem>
 #include <memory>
 #include <ranges>
 using namespace phys::app;
@@ -68,18 +72,39 @@ void Player::multipleScenes()
 void Player::almagationScene()
 {
     int selected_amount = 0;
-    for (auto b : this->selected_recordings)
+    int first_selection = -1;
+    for (auto [i, b] : std::views::enumerate(this->selected_recordings))
     {
         if (b == true)
         {
             selected_amount += 1;
+            if (first_selection == -1)
+                first_selection = i;
         }
     }
+    const auto &recording_first = recordings[first_selection];
+    int has_kinematic = recording_first->getKinematicFrames().size() > 0;
 
-    this->scene_widget_alm.resize_ColorSpectrum(selected_amount);
+    this->scene_widget_alm.resize_ColorSpectrum(has_kinematic + selected_amount);
     this->scene_widget_alm.universes[0]->camera = this->scenes_camera;
 
-    int index = 0;
+    // Kinematic rendering
+    if (has_kinematic)
+    {
+        this->scene_widget_alm.properties[0].first = 0.8;
+        this->scene_widget_alm.properties[0].second = Color(0.5, 0.5, 0.5);
+        const auto time = recording_first->total_time * static_cast<double>(this->timeline_select);
+        const auto env = static_cast<Environment>(*recording_first->universe->env);
+        const auto body_kinematic = phys::calcBody(env.config, time);
+
+        EnvironmentBase env_kinematic;
+        env_kinematic.bodies.emplace_back(body_kinematic);
+        this->scene_widget_alm.universes[0]->env->setEnvironment_safe(env_kinematic);
+        this->scene_widget_alm.universes[0]->env->getProperties_ref() = universe->env->getProperties_ref();
+    }
+
+    // Selected Environments rendering
+    int index = has_kinematic;
     for (auto [i, b] : std::views::enumerate(this->selected_recordings))
     {
         if (b == false)
@@ -98,13 +123,13 @@ void Player::almagationScene()
         const float frame_amount = frames.size();
 
         int frame_index = std::floor((frame_amount - 1) * this->timeline_select);
-        scene_widget_alm.universes[index]->env->setEnvironment_safe(frames[frame_index]);
-        scene_widget_alm.universes[index]->env->getProperties_ref() = universe->env->getProperties_ref();
+        this->scene_widget_alm.universes[index]->env->setEnvironment_safe(frames[frame_index]);
+        this->scene_widget_alm.universes[index]->env->getProperties_ref() = universe->env->getProperties_ref();
 
         index++;
     }
 
-    scene_widget_alm.update();
+    this->scene_widget_alm.update();
 }
 
 void Player::tickContent()
@@ -134,6 +159,120 @@ void Player::tickContent()
         this->review_panel.update(*this->universe);
         ImGui::End();
     }
+}
+
+std::string last_save = "";
+
+void Player::saveAsExcel()
+{
+    namespace fs = std::filesystem;
+    using namespace OpenXLSX;
+
+    auto forceType = phys::getForceStr(this->universe->physicConfig.force_config.force_type);
+
+    // Ensure directory exists
+    fs::create_directories("Excel_Output");
+
+    std::string doc_path = std::format("Excel_Output/{}.xlsx", forceType);
+    if (fs::exists(doc_path))
+    {
+        int count = 1;
+        while (fs::exists(std::format("Excel_Output/{}_{}.xlsx", forceType, count)))
+        {
+            count++;
+        }
+        doc_path = std::format("Excel_Output/{}_{}.xlsx", forceType, count);
+    }
+    last_save = doc_path;
+
+    XLDocument doc;
+    doc.create(doc_path);
+    auto wks = doc.workbook().worksheet("Sheet1");
+
+    int index_X = 1;
+    for (auto &&[i, b] : std::views::enumerate(this->selected_recordings))
+    {
+        if (b)
+        {
+            auto &recording = this->recordings[i];
+            auto environment = static_cast<Environment>(*recording->universe->env);
+            auto universe_config = environment.config;
+
+            // Rows 1
+            wks.cell(index_X, 1).value() =
+                phys::getStepMetodStr(recording->universe->physicConfig.step_config.step_type);
+            wks.cell(index_X + 1, 1).value() =
+                std::format("Delta Time: {}", recording->universe->physicConfig.step_config.delta_time);
+
+            // Row 2
+            wks.cell(2, index_X).value() = "Time:";
+            wks.cell(2, index_X + 1).value() = "Index:";
+            wks.cell(2, index_X + 2).value() = "X_Kinematic:";
+            wks.cell(2, index_X + 3).value() = "Y_Kinematic:";
+            wks.cell(2, index_X + 4).value() = "Z_Kinematic:";
+            wks.cell(2, index_X + 5).value() = "X:";
+            wks.cell(2, index_X + 6).value() = "Y:";
+            wks.cell(2, index_X + 7).value() = "Z:";
+            wks.cell(2, index_X + 8).value() = "Delta Magnitude:";
+            wks.cell(2, index_X + 9).value() = "Velocity_Kinematic:";
+            wks.cell(2, index_X + 10).value() = "Velocity:";
+            wks.cell(2, index_X + 11).value() = "Delta_Velocity:";
+            wks.cell(2, index_X + 12).value() = "####";
+
+            double magnitude_delta_sum = 0.0f;
+            double velocity_delta_sum = 0.0f;
+
+            int startY = 3;
+            for (auto &&[i, env] : std::views::enumerate(recording->getFrames()))
+            {
+                const auto kinematic_body = phys::calcBody(universe_config, env.passed_time);
+                const auto body = env.bodies[0];
+
+                const auto time = env.passed_time;
+                const auto index = i;
+                const auto x_k = kinematic_body.pos.x;
+                const auto y_k = kinematic_body.pos.y;
+                const auto z_k = kinematic_body.pos.z;
+                const auto x = body.pos.x;
+                const auto y = body.pos.y;
+                const auto z = body.pos.z;
+                const auto magnitude_delta = glm::length(body.pos - kinematic_body.pos);
+                const auto velocity_k = glm::length(kinematic_body.vel);
+                const auto velocity = glm::length(body.vel);
+                const auto velocity_delta = velocity - velocity_k;
+
+                wks.cell(startY + i, index_X).value() = time;
+                wks.cell(startY + i, index_X + 1).value() = index;
+                wks.cell(startY + i, index_X + 2).value() = x_k;
+                wks.cell(startY + i, index_X + 3).value() = y_k;
+                wks.cell(startY + i, index_X + 4).value() = z_k;
+                wks.cell(startY + i, index_X + 5).value() = x;
+                wks.cell(startY + i, index_X + 6).value() = y;
+                wks.cell(startY + i, index_X + 7).value() = z;
+                wks.cell(startY + i, index_X + 8).value() = magnitude_delta;
+                wks.cell(startY + i, index_X + 9).value() = velocity_k;
+                wks.cell(startY + i, index_X + 10).value() = velocity;
+                wks.cell(startY + i, index_X + 11).value() = velocity_delta;
+                wks.cell(startY + i, index_X + 12).value() = "####";
+
+                magnitude_delta_sum += magnitude_delta;
+                velocity_delta_sum += velocity_delta;
+            }
+
+            const auto magnitude_delta_average = magnitude_delta_sum / recording->getFrames().size();
+            const auto velocity_delta_average = velocity_delta_sum / recording->getFrames().size();
+
+            // Averages
+            wks.cell(1, index_X + 7).value() = "delta Average: ";
+            wks.cell(1, index_X + 8).value() = magnitude_delta_average;
+            wks.cell(1, index_X + 10).value() = "delta Average";
+            wks.cell(1, index_X + 11).value() = velocity_delta_average;
+
+            index_X += 13;
+        }
+    }
+
+    doc.save();
 }
 
 void Player::tickRightBar()
@@ -205,11 +344,16 @@ void Player::tickRightBar()
     this->selected_recordings.resize(this->recordings.size());
     for (const auto &&[i, recording] : std::views::enumerate(this->recordings))
     {
-        const auto physics_config = recording->universe->physicConfig;
-        std::string check_str =
-            std::format("Recording {} ({},{})", i, getStepMetodStr(physics_config.step_config.step_type),
-                        physics_config.step_config.delta_time);
-        ImGui::Checkbox(check_str.c_str(), reinterpret_cast<bool *>(&this->selected_recordings[i]));
+        if (recording->getStatus() >= 1)
+        {
+            ImGui::BeginDisabled(recording->getStatus() < 3);
+            const auto physics_config = recording->universe->physicConfig;
+            std::string check_str =
+                std::format("Recording {} ({},{})", i, getStepMetodStr(physics_config.step_config.step_type),
+                            physics_config.step_config.delta_time);
+            ImGui::Checkbox(check_str.c_str(), reinterpret_cast<bool *>(&this->selected_recordings[i]));
+            ImGui::EndDisabled();
+        }
     }
     ImGui::EndChild();
     if (ImGui::Button("Clear Recordings"))
@@ -220,6 +364,12 @@ void Player::tickRightBar()
 
     ////Timeline of current selected recordings
     ImGui::SliderFloat("Timeline", &this->timeline_select, 0.0f, 1.0);
+
+    if (ImGui::Button("Save Excel"))
+    {
+        this->saveAsExcel();
+    }
+    ImGui::Text(last_save.c_str());
 
     ImGui::End();
 }

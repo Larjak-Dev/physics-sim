@@ -3,6 +3,7 @@
 #include "../gl/GladWrap.hpp"
 #include "Camera.hpp"
 #include "Environment.hpp"
+#include "tools/Units.hpp"
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <memory>
 
@@ -35,17 +36,19 @@ class Renderer
 {
   public:
     Transform2D transform2D;
-    sf::RenderTarget *target;
+    sf::RenderTarget *target{nullptr};
 
     void activate(sf::RenderTarget &target);
     void deactivate();
 
-    void renderGrid(double exponant, const Camera &cam, const gl::Shader &shader,
-                    Color color = Color(1.0, 1.0, 1.0, 1.0), float transarency = 1.0f);
     void render(const Environment &env, const Camera &cam, float transarency = 1.0f,
                 Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
+    void renderGrid(double exponant, const Camera &cam, float transarency = 1.0f,
+                    Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
 
   private:
+    void renderGrid2D(double exponant, const Camera &cam, const gl::Shader &shader,
+                      Color color = Color(1.0, 1.0, 1.0, 1.0), float transarency = 1.0f);
     void render2D(const Environment &env, const Camera &cam, const gl::Shader &shader);
 
     // void render3D(sf::RenderTarget& target, sf::Vector2u size, const Environment& env, const Camera& cam);

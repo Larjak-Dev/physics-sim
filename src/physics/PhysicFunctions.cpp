@@ -28,7 +28,7 @@ ForceFunction createNewtonianForceFunction(double G)
                 if (other.id == self.id)
                     continue;
                 const auto r = glm::length(pos - other.pos);
-                const auto F = (G * self.mass * other.mass * (pos - other.pos)) / (glm::pow(r, 3));
+                const auto F = -(G * self.mass * other.mass * (pos - other.pos)) / (glm::pow(r, 3));
                 F_total += F;
             }
             return F_total;
@@ -225,6 +225,7 @@ PhysicFunctions::PhysicFunctions(PhysicConfig config)
         break;
     case phys::ForceType::Newtonian:
         this->force = createNewtonianForceFunction(config.force_config.newtonian_config.G);
+        break;
     default:
         assert(false && "Unvalid physics config!");
         break;

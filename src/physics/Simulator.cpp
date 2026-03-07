@@ -1,9 +1,14 @@
 #include "Simulator.hpp"
 #include "Kinematics.hpp"
+#include "XLDocument.hpp"
 #include "physics/PhysicFunctions.hpp"
 #include "tools/Error.hpp"
+#include "universe/Environment.hpp"
+#include "universe/PhysicConfig.hpp"
+#include <OpenXLSX.hpp>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 using namespace phys;
 
@@ -41,6 +46,11 @@ const std::vector<phys::EnvironmentBase> &Recording::getFrames() const
     return this->frames;
 }
 
+const std::vector<phys::EnvironmentBase> &Recording::getKinematicFrames() const
+{
+    return this->frames_kinematic;
+}
+
 Simulator::Simulator()
 {
 }
@@ -65,6 +75,26 @@ void Simulator::startSim(std::shared_ptr<Universe> universe)
         phys::showMessage("Simulator is already running!");
         return;
     }
+
+    if (universe->physicConfig.force_config.force_type == ForceType::Null)
+    {
+        phys::showMessage("Unvalid force type!");
+        return;
+    }
+    if (universe->physicConfig.step_config.step_type == StepType::Null)
+    {
+        phys::showMessage("Unvalid step type!");
+        return;
+    }
+    if (universe->physicConfig.step_config.delta_time <= 0.0)
+    {
+        phys::showMessage("Unvalid delta time!");
+        return;
+    }
+
+    auto env = static_cast<Environment>(*universe->env);
+    phys::prepareEnvironment(env, env.config, universe->physicConfig.step_config.delta_time);
+    universe->env->setEnvironment_safe(env);
 
     assert(universe);
     assert(universe->env);
@@ -99,11 +129,40 @@ void Simulator::startSim(std::shared_ptr<Universe> universe)
             this->running_sim = false;
         });
 }
+
+void addKinematicEnv(std::vector<EnvironmentBase> &frames_kinematic, Body body_kinematic)
+{
+
+    EnvironmentBase env_kinematic;
+    env_kinematic.bodies.emplace_back(body_kinematic);
+    frames_kinematic.emplace_back(env_kinematic);
+}
+
 void Simulator::startPreview(const Universe &universe, std::shared_ptr<Recording> recording)
 {
     if (this->running_preview)
     {
         phys::showMessage("Simulator is already running!");
+        return;
+    }
+    if (universe.physicConfig.force_config.force_type == ForceType::Null)
+    {
+        phys::showMessage("Unvalid force type!");
+        return;
+    }
+    if (universe.physicConfig.step_config.step_type == StepType::Null)
+    {
+        phys::showMessage("Unvalid step type!");
+        return;
+    }
+    if (universe.physicConfig.step_config.delta_time <= 0.0)
+    {
+        phys::showMessage("Unvalid delta time!");
+        return;
+    }
+    if (universe.physicConfig.step_config.total_time <= 0.0)
+    {
+        phys::showMessage("Unvalid total time!");
         return;
     }
 
@@ -117,20 +176,24 @@ void Simulator::startPreview(const Universe &universe, std::shared_ptr<Recording
     const auto physic_functions = PhysicFunctions(universe.physicConfig);
     const double delta_time = universe.physicConfig.step_config.delta_time;
     const double total_time = universe.physicConfig.step_config.total_time;
+    recording->total_time = total_time;
 
-    // Kinematics
-    const bool calculate_kinematic = env.config.is_calculated;
-    const auto config_kinemtic = env.config;
+    //// Kinematics
+    const auto config_kinematic = env.config;
+    const bool calculate_kinematic = config_kinematic.is_calculated;
     if (calculate_kinematic)
     {
-        recording->frames_kinematic.emplace_back(phys::calcBody(config_kinemtic, env.passed_time));
+        addKinematicEnv(recording->frames_kinematic, phys::calcBody(config_kinematic, env.passed_time));
     }
+    ////
+
+    phys::prepareEnvironment(recording->frames.back(), config_kinematic, delta_time);
 
     if (this->thread_preview.joinable())
         this->thread_preview.join();
 
     this->thread_preview = std::thread(
-        [this, recording, physic_functions, delta_time, total_time, calculate_kinematic, config_kinemtic]()
+        [this, recording, physic_functions, delta_time, total_time, calculate_kinematic, config_kinematic]()
         {
             recording->status = 2;
             this->running_preview = true;
@@ -149,11 +212,12 @@ void Simulator::startPreview(const Universe &universe, std::shared_ptr<Recording
                 const auto env_new = physic_functions.step(env_prev, delta_time, step_buffer);
                 recording->frames.emplace_back(env_new);
 
+                /////Kinematics
                 if (calculate_kinematic)
                 {
-                    recording->frames_kinematic.emplace_back(
-                        phys::calcBody(config_kinemtic, recording->frames.back().passed_time));
+                    addKinematicEnv(recording->frames_kinematic, phys::calcBody(config_kinematic, env_new.passed_time));
                 }
+                /////
             }
 
             recording->status = 3;

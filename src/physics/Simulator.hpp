@@ -20,14 +20,17 @@ class Recording
     u_int32_t getCompletion() const;
 
     const std::vector<phys::EnvironmentBase> &getFrames() const;
+    const std::vector<phys::EnvironmentBase> &getKinematicFrames() const;
+    void saveAsExcel();
 
     std::unique_ptr<Universe> universe;
+    double total_time;
 
   private:
     std::atomic_uint status{0};
     std::atomic_uint completion{0};
     std::vector<phys::EnvironmentBase> frames;
-    std::vector<Body> frames_kinematic;
+    std::vector<phys::EnvironmentBase> frames_kinematic;
 
     friend Simulator;
 };

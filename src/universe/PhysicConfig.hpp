@@ -12,6 +12,18 @@ enum class ForceType
     Newtonian,
     FreeFall
 };
+inline const char *getForceStr(ForceType type)
+{
+    switch (type)
+    {
+    case phys::ForceType::Null:
+        return "Null";
+    case phys::ForceType::FreeFall:
+        return "FreeFall";
+    case phys::ForceType::Newtonian:
+        return "Newtonian";
+    }
+}
 
 struct NewtonianConfig
 {
@@ -25,10 +37,11 @@ struct FreeFallConfig
 
 struct ForceConfig
 {
-    ForceType force_type;
+    ForceType force_type{ForceType::Null};
     NewtonianConfig newtonian_config;
     FreeFallConfig freefall_config;
 };
+
 /////////////
 /// StepConfig
 /////////////
@@ -62,7 +75,7 @@ inline const char *getStepMetodStr(StepType type)
 
 struct StepConfig
 {
-    StepType step_type;
+    StepType step_type{StepType::Null};
     double delta_time{0.01};
     double total_time{10};
 };
@@ -90,6 +103,9 @@ struct UniverseConfig
     double mass_1_newtonian{1.0};
     double mass_2_newtonian{1.0};
     double vel_1_newtonian{1.0};
+
+    // Other
+    double total_time{10.0};
 };
 
 } // namespace phys

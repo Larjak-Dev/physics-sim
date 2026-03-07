@@ -18,6 +18,8 @@ struct Body
     double mass{1.0};
     uint16_t id{0};
     bool is_locked{false};
+
+    void prepare(double deltaTime);
 };
 
 using Bodies = std::vector<Body>;

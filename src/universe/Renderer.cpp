@@ -6,7 +6,9 @@
 #include "gl/ResourcesGl.hpp"
 #include "glm/matrix.hpp"
 #include "glm/trigonometric.hpp"
+#include "tools/Debug.hpp"
 #include "tools/Units.hpp"
+#include <cmath>
 #include <glad/glad.h>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
@@ -56,9 +58,18 @@ void Renderer::render(const Environment &env, const Camera &cam, float transpare
     render2D(env, cam, shader);
 }
 
+void Renderer::renderGrid(double scale, const Camera &cam, float transparency, Color color)
+{
+    auto &shader = gl::getResourcesGL()->mainShader;
+    double exponant_1 = std::floor(std::log10(cam.distance * 0.6));
+    double exponant_2 = std::floor(std::log10(cam.distance) + 1);
+    phys::showDebugF("Exponent: {}", exponant_1);
+    this->renderGrid2D(exponant_1, cam, shader, Color(0.5f, 0.5f, 0.5f), transparency);
+    this->renderGrid2D(exponant_2, cam, shader, Color(1.0f, 1.0f, 1.0f), transparency);
+}
+
 mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const mat4d &vp_world)
 {
-
     auto sum_world = pos_world + size_world;
 
     auto pos_scene = vp_world * pos_world;
@@ -71,8 +82,10 @@ mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const mat
     return model;
 }
 
-void Renderer::renderGrid(double exponant, const Camera &cam, const gl::Shader &shader, Color color, float transparency)
+void Renderer::renderGrid2D(double exponant, const Camera &cam, const gl::Shader &shader, Color color,
+                            float transparency)
 {
+
     assert(this->target);
     auto &target = *this->target;
 
@@ -97,7 +110,7 @@ void Renderer::renderGrid(double exponant, const Camera &cam, const gl::Shader &
 
     const auto amountGrid = gl::getResourcesGL()->gridAmount;
     const auto center_world = vec4d(glm::round(cam.center / scale) * scale, 1.0f);
-    const auto size_world = vec4d{amountGrid / 2.0, amountGrid / 2.0, amountGrid / 2.0, 0.0};
+    const auto size_world = vec4d{scale * amountGrid / 2.0, scale * amountGrid / 2.0, scale * amountGrid / 2.0, 0.0};
 
     auto model = getModelTransform(center_world, size_world, vp_world);
     glProgramUniformMatrix4fv(shader.getShaderHandle(), 4, 1, GL_FALSE, glm::value_ptr(model));

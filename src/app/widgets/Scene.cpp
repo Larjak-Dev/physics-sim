@@ -35,6 +35,7 @@ void TextureWidget::update()
 }
 
 #include "../../tools/Debug.hpp"
+#include <iostream>
 void updateDragging(ImVec2 cursor, const phys::Universe &universe, sf::RenderTexture &texture)
 {
     using namespace phys;
@@ -56,6 +57,16 @@ void updateDragging(ImVec2 cursor, const phys::Universe &universe, sf::RenderTex
             auto delta_cam = delta_crossX + delta_crossY;
 
             universe.camera->center += delta_cam;
+        }
+    }
+    if (ImGui::IsItemHovered())
+    {
+        // Scrolling
+        float wheel = ImGui::GetIO().MouseWheel;
+        if (wheel != 0.0f)
+        {
+            std::cout << "1";
+            universe.camera->distance *= std::pow(1.1, -wheel);
         }
     }
 }
@@ -83,6 +94,7 @@ void SceneWidget::update(phys::Universe &universe)
 
     this->texture.clear();
     universe.renderer.activate(this->texture);
+    universe.renderer.renderGrid(1, *universe.camera, 1.0f, Color(0.5, 0.5, 0.5, 1.0));
     universe.renderer.render(static_cast<Environment>(*universe.env), *universe.camera);
     universe.renderer.deactivate();
 }
@@ -174,6 +186,7 @@ void AlmagationWidget::update()
 
     this->texture.clear();
     this->universes[0]->renderer.activate(this->texture);
+    this->universes[0]->renderer.renderGrid(1, *this->universes[0]->camera, 1.0f, Color(0.5, 0.5, 0.5, 1.0));
     for (auto &&[i, universe] : std::views::enumerate(this->universes))
     {
         if (!universe || !universe->env)

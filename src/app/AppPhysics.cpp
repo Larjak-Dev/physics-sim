@@ -2,6 +2,7 @@
 #include "SFML/Window/ContextSettings.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
+#include "physics/Kinematics.hpp"
 #include "universe/Camera.hpp"
 #include "universe/Environment.hpp"
 #include "universe/PhysicConfig.hpp"
@@ -10,24 +11,11 @@
 using namespace phys::app;
 
 PhysicApp::PhysicApp(sf::ContextSettings settings)
-    : App(sf::VideoMode({800, 500}), "PhysicApp", sf::Style::Titlebar | sf::Style::Close, sf::State::Windowed, settings)
+    : App(sf::VideoMode({1400, 800}), "PhysicApp", sf::Style::Titlebar | sf::Style::Close, sf::State::Windowed,
+          settings)
 {
-    phys::Environment env{};
-    phys::Body body{};
-    phys::Property prop{};
-    env.addBody(body, prop);
-
-    this->universe = std::make_shared<Universe>();
-    this->universe->env = std::make_shared<phys::EnvironmentActive>(env);
-    this->universe->camera = std::make_shared<phys::Camera>(10.0);
-
-    auto &force_config = this->universe->physicConfig.force_config;
-    auto &step_config = this->universe->physicConfig.step_config;
-    force_config.force_type = phys::ForceType::FreeFall;
-    force_config.freefall_config.g = 9.81;
-    step_config.step_type = phys::StepType::RK4;
-    step_config.delta_time = 0.01;
-    step_config.total_time = 10;
+    auto config = phys::createPerfectSatelite(1.0, 1.0, 10, 2.0);
+    this->universe = std::make_shared<Universe>(phys::createUniverse(config));
 }
 
 void PhysicApp::init()
@@ -62,7 +50,9 @@ void PhysicApp::tick()
     switch (this->selectedSlide)
     {
     case SlideType::Editor:
-
+        this->editorSlide.setUniverse(this->universe);
+        this->editorSlide.tickContent();
+        this->editorSlide.tickRightBar(this->universe);
         break;
     case SlideType::Simulator:
         this->simulatorSlide.setUniverse(this->universe);
@@ -97,6 +87,7 @@ void PhysicApp::buildDock(int dock_id)
         DockBuilderDockWindow("Preview", dock_main);
         DockBuilderDockWindow("Player", dock_main);
         DockBuilderDockWindow("Simulator", dock_main);
+        DockBuilderDockWindow("Editor", dock_main);
 
         DockBuilderDockWindow("Slides", dock_left);
         DockBuilderDockWindow("Control Panel", dock_right);
