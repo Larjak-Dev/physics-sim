@@ -199,30 +199,36 @@ void Player::saveAsExcel()
             auto universe_config = environment.config;
 
             // Rows 1
-            wks.cell(index_X, 1).value() =
+            wks.cell(1, index_X).value() =
                 phys::getStepMetodStr(recording->universe->physicConfig.step_config.step_type);
-            wks.cell(index_X + 1, 1).value() =
+            wks.cell(1, index_X + 1).value() =
                 std::format("Delta Time: {}", recording->universe->physicConfig.step_config.delta_time);
 
             // Row 2
-            wks.cell(2, index_X).value() = "Time:";
-            wks.cell(2, index_X + 1).value() = "Index:";
-            wks.cell(2, index_X + 2).value() = "X_Kinematic:";
-            wks.cell(2, index_X + 3).value() = "Y_Kinematic:";
-            wks.cell(2, index_X + 4).value() = "Z_Kinematic:";
-            wks.cell(2, index_X + 5).value() = "X:";
-            wks.cell(2, index_X + 6).value() = "Y:";
-            wks.cell(2, index_X + 7).value() = "Z:";
-            wks.cell(2, index_X + 8).value() = "Delta Magnitude:";
-            wks.cell(2, index_X + 9).value() = "Velocity_Kinematic:";
-            wks.cell(2, index_X + 10).value() = "Velocity:";
-            wks.cell(2, index_X + 11).value() = "Delta_Velocity:";
-            wks.cell(2, index_X + 12).value() = "####";
+            int start_y = 3;
+            wks.cell(start_y, index_X).value() = "Time:";
+            wks.cell(start_y, index_X + 1).value() = "Index:";
+            wks.cell(start_y, index_X + 2).value() = "X (Kinematic):";
+            wks.cell(start_y, index_X + 3).value() = "Y (Kinematic):";
+            wks.cell(start_y, index_X + 4).value() = "Z (Kinematic):";
+            wks.cell(start_y, index_X + 5).value() = "X:";
+            wks.cell(start_y, index_X + 6).value() = "Y:";
+            wks.cell(start_y, index_X + 7).value() = "Z:";
+            wks.cell(start_y, index_X + 8).value() = "Delta Magnitude:";
+            wks.cell(start_y, index_X + 9).value() = "Velocity (Kinematic):";
+            wks.cell(start_y, index_X + 10).value() = "Velocity:";
+            wks.cell(start_y, index_X + 11).value() = "Delta Velocity:";
+            wks.cell(start_y, index_X + 12).value() = "Energy Total (Kinematic):";
+            wks.cell(start_y, index_X + 13).value() = "Energy Total:";
+            wks.cell(start_y, index_X + 14).value() = "Delta Energy:";
+            wks.cell(start_y, index_X + 15).value() = "Delta Energy (Abs):";
+            wks.cell(start_y, index_X + 16).value() = "####";
 
             double magnitude_delta_sum = 0.0f;
             double velocity_delta_sum = 0.0f;
+            double energy_delta_sum = 0.0f;
 
-            int startY = 3;
+            int startY = start_y + 1;
             for (auto &&[i, env] : std::views::enumerate(recording->getFrames()))
             {
                 const auto kinematic_body = phys::calcBody(universe_config, env.passed_time);
@@ -240,6 +246,44 @@ void Player::saveAsExcel()
                 const auto velocity_k = glm::length(kinematic_body.vel);
                 const auto velocity = glm::length(body.vel);
                 const auto velocity_delta = velocity - velocity_k;
+                auto energy_k_k = 0.5 * kinematic_body.mass * std::pow(velocity_k, 2);
+                auto energy_p_k = 0.0;
+                auto energy_t_k = 0.0;
+                auto energy_k = 0.5 * body.mass * std::pow(velocity, 2);
+                auto energy_p = 0.0;
+                auto energy_t = 0.0;
+                auto energy_t_delta = 0.0;
+                auto energy_t_delta_abs = 0.0;
+
+                switch (universe_config.force_config.force_type)
+                {
+                case phys::ForceType::FreeFall:
+                {
+                    const auto g = universe_config.force_config.freefall_config.g;
+                    energy_p_k = kinematic_body.mass * g * kinematic_body.pos.y;
+                    energy_p = body.mass * g * body.pos.y;
+                }
+                break;
+                case phys::ForceType::Newtonian:
+                {
+                    const auto G = universe_config.force_config.newtonian_config.G;
+                    const auto M = universe_config.mass_2_newtonian;
+
+                    const auto r_k = glm::length(kinematic_body.pos);
+                    energy_p_k = -G * M * kinematic_body.mass / r_k;
+
+                    const auto r = glm::length(body.pos);
+                    energy_p = -G * M * body.mass / r;
+                }
+                break;
+                default:
+                    break;
+                }
+
+                energy_t_k = energy_p_k + energy_k_k;
+                energy_t = energy_p + energy_k;
+                energy_t_delta = energy_t - energy_t_k;
+                energy_t_delta_abs = glm::abs(energy_t_delta);
 
                 wks.cell(startY + i, index_X).value() = time;
                 wks.cell(startY + i, index_X + 1).value() = index;
@@ -253,22 +297,30 @@ void Player::saveAsExcel()
                 wks.cell(startY + i, index_X + 9).value() = velocity_k;
                 wks.cell(startY + i, index_X + 10).value() = velocity;
                 wks.cell(startY + i, index_X + 11).value() = velocity_delta;
-                wks.cell(startY + i, index_X + 12).value() = "####";
+                wks.cell(startY + i, index_X + 12).value() = energy_t_k;
+                wks.cell(startY + i, index_X + 13).value() = energy_t;
+                wks.cell(startY + i, index_X + 14).value() = energy_t_delta;
+                wks.cell(startY + i, index_X + 15).value() = energy_t_delta_abs;
+                wks.cell(startY + i, index_X + 16).value() = "####";
 
                 magnitude_delta_sum += magnitude_delta;
                 velocity_delta_sum += velocity_delta;
+                energy_delta_sum += energy_t_delta_abs;
             }
 
             const auto magnitude_delta_average = magnitude_delta_sum / recording->getFrames().size();
             const auto velocity_delta_average = velocity_delta_sum / recording->getFrames().size();
+            const auto energy_delta_average = energy_delta_sum / recording->getFrames().size();
 
             // Averages
-            wks.cell(1, index_X + 7).value() = "delta Average: ";
+            wks.cell(1, index_X + 7).value() = "Magnitude Delta Average: ";
             wks.cell(1, index_X + 8).value() = magnitude_delta_average;
-            wks.cell(1, index_X + 10).value() = "delta Average";
+            wks.cell(1, index_X + 10).value() = "Velocity Delta Average";
             wks.cell(1, index_X + 11).value() = velocity_delta_average;
+            wks.cell(1, index_X + 14).value() = "Energy Delta Average";
+            wks.cell(1, index_X + 15).value() = energy_delta_average;
 
-            index_X += 13;
+            index_X += 17;
         }
     }
 

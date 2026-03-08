@@ -72,19 +72,19 @@ Universe phys::createUniverse(const UniverseConfig config)
     {
         Body body_s;
         body_s.is_locked = false;
-        body_s.pos = {0.0, 0.0, 0.0};
+        body_s.pos = {0.0, 100.0, 0.0};
         body_s.mass = 1.0;
         body_s.prev_pos = {0.0, 0.0, 0.0};
         body_s.vel = {0.0, 0.0, 0.0};
         Property property_s;
         property_s.color = Color(255, 0, 0, 255);
-        property_s.size = {0.5, 0.5, 0.5};
+        property_s.size = {2, 2, 2};
         env.addBody(body_s, property_s);
 
         universe.physicConfig.force_config.force_type = ForceType::FreeFall;
         universe.physicConfig.force_config.freefall_config.g = config.force_config.freefall_config.g;
 
-        camera.center = {0.0, 0.0, 0.0};
+        camera.center = {0.0, 100.0, 0.0};
         camera.distance = 8;
     }
     break;
@@ -209,12 +209,12 @@ Body freefall(double acceleration, double time)
     double vel = 0.0;
     if (time > 0.0)
     {
-        y = acceleration * std::pow(time, 2) / 2.0;
+        y = acceleration * std::pow(time, 2.0) / 2.0;
         vel = acceleration * time;
     }
 
     Body body;
-    body.pos = {0.0, -y, 0.0};
+    body.pos = {0.0, 100 - y, 0.0};
     body.vel = {0.0, -vel, 0.0};
     return body;
 }

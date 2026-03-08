@@ -16,7 +16,7 @@ struct KinematicConfig
     double acceleration{9.81};
 
     double time_satelite{86400};
-    double time_fall{10};
+    double time_fall{4.5};
 };
 
 UniverseConfig createKinematicScenario(KinematicConfig config);
