@@ -199,8 +199,12 @@ void Simulator::startPreview(const Universe &universe, std::shared_ptr<Recording
             this->running_preview = true;
             StepBuffer step_buffer;
 
-            while (!this->stop_preview && recording->frames.back().passed_time + delta_time < total_time)
+            int amount_frames = std::round(total_time / delta_time);
+
+            for (int i = 0; i < amount_frames; i++)
             {
+                if (this->stop_preview)
+                    break;
                 {
                     std::unique_lock<std::mutex> lock(mtx_preview);
                     cv_preview.wait(lock, [this] { return !this->paused_preview; });

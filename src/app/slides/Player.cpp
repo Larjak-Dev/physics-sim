@@ -4,6 +4,7 @@
 #include "../widgets/extra.hpp"
 #include "imgui.h"
 #include "physics/Kinematics.hpp"
+#include "physics/PhysicFunctions.hpp"
 #include "tools/Debug.hpp"
 #include "universe/Camera.hpp"
 #include "universe/Environment.hpp"
@@ -229,10 +230,20 @@ void Player::saveAsExcel()
             double energy_delta_sum = 0.0f;
 
             int startY = start_y + 1;
-            for (auto &&[i, env] : std::views::enumerate(recording->getFrames()))
+            const auto physic_functions = phys::PhysicFunctions(recording->universe->physicConfig);
+            const auto &frames = recording->getFrames();
+            for (auto &&[i, env] : std::views::enumerate(frames))
             {
                 const auto kinematic_body = phys::calcBody(universe_config, env.passed_time);
-                const auto body = env.bodies[0];
+                auto body = env.bodies[0];
+                const double dt = recording->universe->physicConfig.step_config.delta_time;
+
+                if (recording->universe->physicConfig.step_config.step_type == StepType::Verlet)
+                {
+                    // More accurate Verlet velocity (v = (pos - prev_pos)/dt + 0.5 * a * dt)
+                    const auto acceleration = physic_functions.acceleration(body.pos, body, env);
+                    body.vel = (body.pos - body.prev_pos) / dt + 0.5 * acceleration * dt;
+                }
 
                 const auto time = env.passed_time;
                 const auto index = i;

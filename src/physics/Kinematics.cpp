@@ -183,7 +183,7 @@ bool phys::checkKinematicValidityOfUniverse(const Universe &universe, UniverseCo
     return true;
 }
 
-Body satelite(double distance, double velocity, double time)
+Body satelite(double distance, double velocity, double mass, double time)
 {
 
     const auto time_circulation = (2.0 * PI * distance) / velocity;
@@ -200,10 +200,11 @@ Body satelite(double distance, double velocity, double time)
     Body body;
     body.pos = {x, y, 0.0};
     body.vel = {x_vel, y_vel, 0.0};
+    body.mass = mass;
     return body;
 }
 
-Body freefall(double acceleration, double time)
+Body freefall(double acceleration, double mass, double time)
 {
     double y = 0.0;
     double vel = 0.0;
@@ -216,6 +217,7 @@ Body freefall(double acceleration, double time)
     Body body;
     body.pos = {0.0, 100 - y, 0.0};
     body.vel = {0.0, -vel, 0.0};
+    body.mass = mass;
     return body;
 }
 
@@ -223,17 +225,19 @@ Body phys::calcBody(UniverseConfig config, double time)
 {
     // Free fall
     const auto acceleration = config.force_config.freefall_config.g;
+    const auto mass_fall = 1.0;
     // Newtonian
     const auto distance = config.distance_newtonian;
     const auto velocity = config.vel_1_newtonian;
+    const auto mass_newtonian = config.mass_1_newtonian;
 
     switch (config.force_config.force_type)
     {
     case phys::ForceType::FreeFall:
-        return freefall(acceleration, time);
+        return freefall(acceleration, mass_fall, time);
     case phys::ForceType::Newtonian:
         // Perfect satelite pattern
-        return satelite(distance, velocity, time);
+        return satelite(distance, velocity, mass_newtonian, time);
     default:
         assert(false);
         return Body();
@@ -244,11 +248,8 @@ void phys::prepareEnvironment(EnvironmentBase &env, UniverseConfig config, doubl
 {
     if (config.is_calculated)
     {
-        if (config.force_config.force_type == ForceType::Newtonian)
-        {
-            auto prev_body = calcBody(config, -delta_time);
-            env.bodies[0].prev_pos = prev_body.pos;
-        }
+        auto prev_body = calcBody(config, -delta_time);
+        env.bodies[0].prev_pos = prev_body.pos;
     }
     if (!config.is_calculated)
     {
