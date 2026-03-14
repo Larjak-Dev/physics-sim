@@ -12,11 +12,11 @@ Features:
 * Automatically calculates delta position and total energy between simulated body and calculated kinematic body. (Only if you use one of the environment presets)
 
 External Libraries:
-SFML https://github.com/SFML/SFML
-ImGui https://github.com/ocornut/imgui 
-imgui-sfml https://github.com/SFML/imgui-sfml
-glad https://github.com/Dav1dde/glad
-glm https://github.com/g-truc/glm
+* SFML https://github.com/SFML/SFML
+* ImGui https://github.com/ocornut/imgui 
+* imgui-sfml https://github.com/SFML/imgui-sfml
+* glad https://github.com/Dav1dde/glad
+* glm https://github.com/g-truc/glm
 
 Build Guide for windows:
 
@@ -27,9 +27,13 @@ When setting up Visual Studio you need to select "Desktop development with C++".
    
 4. Open the source code folder in Visual Studio and click Build.
 
-Build:
-Project is built using CMake and the correct libraries are automatically fetched, built and statically linked when running Cmake. The reason it's statically linked is because i had issues with SFML linking with incompatible shared libraries when building in an MinGW environment. Build instructions for console cmake environment:
+Build for setup cmake environment:
+Project is built using CMake and the correct libraries are automatically fetched, built and statically linked when running Cmake. The reason it's statically linked is because i had issues with SFML linking with incompatible shared libraries when building in an MinGW environment. 
+Build instructions for console cmake environment:
 1. git clone https://github.com/Larjak-Dev/physics-sim.git
 2. cd physics-sim
-3. 
+3. cmake ..
+4. mkdir build
+5. cd build
+6. cmake --build .
 
