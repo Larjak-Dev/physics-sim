@@ -32,11 +32,11 @@ std::string Recording::getStatusStr() const
         return "Error!";
     }
 }
-u_int32_t Recording::getStatus() const
+uint32_t Recording::getStatus() const
 {
     return this->status;
 }
-u_int32_t Recording::getCompletion() const
+uint32_t Recording::getCompletion() const
 {
     return this->completion;
 }
@@ -210,7 +210,7 @@ void Simulator::startPreview(const Universe &universe, std::shared_ptr<Recording
                     cv_preview.wait(lock, [this] { return !this->paused_preview; });
                 }
 
-                recording->completion = static_cast<u_int16_t>(100 * recording->frames.back().passed_time / total_time);
+                recording->completion = static_cast<uint16_t>(100 * recording->frames.back().passed_time / total_time);
 
                 const auto env_prev = recording->frames.back();
                 const auto env_new = physic_functions.step(env_prev, delta_time, step_buffer);

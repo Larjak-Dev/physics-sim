@@ -16,8 +16,8 @@ class Recording
 {
   public:
     std::string getStatusStr() const;
-    u_int32_t getStatus() const;
-    u_int32_t getCompletion() const;
+    uint32_t getStatus() const;
+    uint32_t getCompletion() const;
 
     const std::vector<phys::EnvironmentBase> &getFrames() const;
     const std::vector<phys::EnvironmentBase> &getKinematicFrames() const;

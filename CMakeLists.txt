@@ -81,8 +81,11 @@ target_include_directories(${PROJECT_NAME} PUBLIC
     src
 )
 
+find_package(OpenGL REQUIRED)
+
 # --- NEW: Link SFML & ImGui ---
 target_link_libraries(${PROJECT_NAME} PRIVATE
+    OpenGL::GL
     SFML::Graphics
     ImGui-SFML::ImGui-SFML
     glm::glm
