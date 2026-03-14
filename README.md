@@ -22,9 +22,8 @@ Build Guide for windows:
 
 1. Download Visual Studio: https://visualstudio.microsoft.com/
 When setting up Visual Studio you need to select "Desktop development with C++".
-
+2. Download Git: https://git-scm.com/install/windows
 3. Download the projects source code and extract zip: https://github.com/Larjak-Dev/physics-sim/archive/refs/heads/master.zip
-   
 4. Open the source code folder in Visual Studio and click Build.
 
 Build for c++ cmake console environment:
