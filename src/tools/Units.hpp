@@ -3,7 +3,9 @@
 #include <glm/common.hpp>
 #include <glm/detail/qualifier.hpp>
 #include <glm/fwd.hpp>
+#include <glm/geometric.hpp>
 #include <glm/matrix.hpp>
+#include <glm/vec2.hpp>
 
 struct ImVec2;
 
@@ -18,17 +20,59 @@ using vec3f = glm::fvec3;
 struct vec2f : public glm::fvec2
 {
     using glm::fvec2::fvec2;
+    vec2f() = default;
+    vec2f(const glm::fvec2 &v) : glm::fvec2(v)
+    {
+    }
+
     vec2f(ImVec2 vec);
     inline operator sf::Vector2f() const
     {
         return {this->x, this->y};
     }
     operator ImVec2() const;
+
+    // Operators to maintain vec2f type
+    inline vec2f &operator+=(const glm::fvec2 &v)
+    {
+        glm::fvec2::operator+=(v);
+        return *this;
+    }
+    inline vec2f &operator-=(const glm::fvec2 &v)
+    {
+        glm::fvec2::operator-=(v);
+        return *this;
+    }
+    inline vec2f &operator*=(const glm::fvec2 &v)
+    {
+        glm::fvec2::operator*=(v);
+        return *this;
+    }
+    inline vec2f &operator/=(const glm::fvec2 &v)
+    {
+        glm::fvec2::operator/=(v);
+        return *this;
+    }
+    inline vec2f &operator*=(float s)
+    {
+        glm::fvec2::operator*=(s);
+        return *this;
+    }
+    inline vec2f &operator/=(float s)
+    {
+        glm::fvec2::operator/=(s);
+        return *this;
+    }
 };
 
 struct vec2u : public glm::uvec2
 {
     using glm::uvec2::uvec2;
+    vec2u() = default;
+    vec2u(const glm::uvec2 &v) : glm::uvec2(v)
+    {
+    }
+
     inline vec2u(const sf::Vector2u &other)
     {
         this->x = other.x;
@@ -37,6 +81,17 @@ struct vec2u : public glm::uvec2
     inline operator sf::Vector2u() const
     {
         return {this->x, this->y};
+    }
+
+    inline vec2u &operator+=(const glm::uvec2 &v)
+    {
+        glm::uvec2::operator+=(v);
+        return *this;
+    }
+    inline vec2u &operator-=(const glm::uvec2 &v)
+    {
+        glm::uvec2::operator-=(v);
+        return *this;
     }
 };
 

@@ -1,5 +1,6 @@
 #include "AppPhysics.hpp"
 #include "SFML/Window/ContextSettings.hpp"
+#include "SFML/Window/WindowEnums.hpp"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include "physics/Kinematics.hpp"
@@ -11,8 +12,7 @@
 using namespace phys::app;
 
 PhysicApp::PhysicApp(sf::ContextSettings settings)
-    : App(sf::VideoMode({1400, 800}), "PhysicApp", sf::Style::Titlebar | sf::Style::Close, sf::State::Windowed,
-          settings)
+    : App(sf::VideoMode({1400, 800}), "PhysicApp", sf::Style::Default, sf::State::Windowed, settings)
 {
     auto config = phys::createPerfectSatelite(1.0, 1.0, 10, 2.0);
     this->universe = std::make_shared<Universe>(phys::createUniverse(config));

@@ -92,22 +92,22 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 # 5. Resource Copying Logic
 set(RES_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 if(EXISTS "${RES_FOLDER}")
-    message(STATUS "Resources found. Setting up sync to build directory.")
-    add_custom_target(sync_assets ALL
+  message(STATUS "Resources found. Setting up sync to build directory.")
+  add_custom_target(sync_assets ALL
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             "${RES_FOLDER}"
             "$<TARGET_FILE_DIR:${PROJECT_NAME}>/assets"
         COMMENT "Syncing resources to build directory..."
         VERBATIM
     )
-    add_dependencies(${PROJECT_NAME} sync_assets)
+  add_dependencies(${PROJECT_NAME} sync_assets)
 endif()
 
 # 6. Compiler Warnings
 if(MSVC)
-    target_compile_options(${PROJECT_NAME} PRIVATE /W4) # Removed /WX (treat warnings as errors) temporarily to avoid ImGui headers triggering breaks
+  target_compile_options(${PROJECT_NAME} PRIVATE /W4) # Removed /WX (treat warnings as errors) temporarily to avoid ImGui headers triggering breaks
 else()
-    target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
+  target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
 endif()
 
 # 7. Optimization & Output Locations
@@ -123,3 +123,8 @@ add_custom_target(create_excel_output ALL
     VERBATIM
 )
 add_dependencies(${PROJECT_NAME} create_excel_output)
+
+
+if(WIN32)
+  target_link_libraries(PhysicsSim PRIVATE user32)
+endif()

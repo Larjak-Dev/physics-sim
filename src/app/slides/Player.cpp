@@ -3,6 +3,7 @@
 #include "../../tools/Language.hpp"
 #include "../widgets/extra.hpp"
 #include "imgui.h"
+#include "imgui_internal.h"
 #include "physics/Kinematics.hpp"
 #include "physics/PhysicFunctions.hpp"
 #include "tools/Debug.hpp"
@@ -10,9 +11,11 @@
 #include "universe/Environment.hpp"
 #include "universe/PhysicConfig.hpp"
 #include <OpenXLSX.hpp>
+#include <algorithm>
 #include <filesystem>
 #include <memory>
 #include <ranges>
+#include <strings.h>
 using namespace phys::app;
 
 Player::Player()
@@ -22,23 +25,19 @@ Player::Player()
 void Player::multipleScenes()
 {
 
-    ImGuiID dock_player = ImGui::GetID("Player_Dock");
-    ImGui::DockSpace(dock_player);
-
     int player_amount = 0;
-    for (auto [i, b] : std::views::enumerate(this->selected_recordings))
+    for (auto &&[recording, b] : this->recordings)
     {
         if (b == false)
         {
             continue;
         }
 
-        assert(recordings[i]);
-        assert(recordings[i]->universe);
-        assert(recordings[i]->universe->camera);
-        assert(recordings[i]->universe->env);
+        assert(recording);
+        assert(recording->universe);
+        assert(recording->universe->camera);
+        assert(recording->universe->env);
 
-        const auto &recording = recordings[i];
         const auto &universe = recording->universe;
         const auto &physics_config = universe->physicConfig;
         const auto &frames = recording->getFrames();
@@ -46,7 +45,7 @@ void Player::multipleScenes()
 
         // Player window ID
         player_amount += 1;
-        auto player_ID = std::format("Recording {} ({}, dt: {})##Player {}", i,
+        auto player_ID = std::format("Recording {} ({}, dt: {})##Player {}", player_amount,
                                      phys::getStepMetodStr(physics_config.step_config.step_type),
                                      physics_config.step_config.delta_time, player_amount);
         // Player window
@@ -59,7 +58,7 @@ void Player::multipleScenes()
 
         // Setup Scene widget
         scene_widget.universe->camera = this->scenes_camera;
-        int frame_index = std::floor((frame_amount - 1) * this->timeline_select);
+        int frame_index = std::floor((frame_amount - 1) * this->timeline_float);
         scene_widget.universe->env->setEnvironment_safe(frames[frame_index]);
         scene_widget.universe->env->getProperties_ref() = recording->universe->env->getProperties_ref();
 
@@ -72,18 +71,16 @@ void Player::multipleScenes()
 
 void Player::almagationScene()
 {
+
     int selected_amount = 0;
-    int first_selection = -1;
-    for (auto [i, b] : std::views::enumerate(this->selected_recordings))
+    const auto &item_first = std::ranges::find_if(this->recordings, [](const auto &item) { return item.second; });
+    for (auto &&[recording, b] : this->recordings)
     {
-        if (b == true)
-        {
-            selected_amount += 1;
-            if (first_selection == -1)
-                first_selection = i;
-        }
+        if (b)
+            selected_amount++;
     }
-    const auto &recording_first = recordings[first_selection];
+
+    const auto &recording_first = item_first->first;
     int has_kinematic = recording_first->getKinematicFrames().size() > 0;
 
     this->scene_widget_alm.resize_ColorSpectrum(has_kinematic + selected_amount);
@@ -94,7 +91,7 @@ void Player::almagationScene()
     {
         this->scene_widget_alm.properties[0].first = 0.8;
         this->scene_widget_alm.properties[0].second = Color(0.5, 0.5, 0.5);
-        const auto time = recording_first->total_time * static_cast<double>(this->timeline_select);
+        const auto time = recording_first->total_time * static_cast<double>(this->timeline_float);
         const auto env = static_cast<Environment>(*recording_first->universe->env);
         const auto body_kinematic = phys::calcBody(env.config, time);
 
@@ -106,24 +103,23 @@ void Player::almagationScene()
 
     // Selected Environments rendering
     int index = has_kinematic;
-    for (auto [i, b] : std::views::enumerate(this->selected_recordings))
+    for (auto &&[recording, b] : this->recordings)
     {
         if (b == false)
         {
             continue;
         }
 
-        assert(recordings[i]);
-        assert(recordings[i]->universe);
-        assert(recordings[i]->universe->camera);
-        assert(recordings[i]->universe->env);
+        assert(recording);
+        assert(recording->universe);
+        assert(recording->universe->camera);
+        assert(recording->universe->env);
 
-        const auto &recording = recordings[i];
         const auto &universe = recording->universe;
         const auto &frames = recording->getFrames();
         const float frame_amount = frames.size();
 
-        int frame_index = std::floor((frame_amount - 1) * this->timeline_select);
+        int frame_index = std::round((frame_amount - 1) * this->timeline_float);
         this->scene_widget_alm.universes[index]->env->setEnvironment_safe(frames[frame_index]);
         this->scene_widget_alm.universes[index]->env->getProperties_ref() = universe->env->getProperties_ref();
 
@@ -136,7 +132,7 @@ void Player::almagationScene()
 void Player::tickContent()
 {
     bool hasSelectedAnything = false;
-    for (auto b : this->selected_recordings)
+    for (auto [recording, b] : this->recordings)
     {
         if (b == true)
         {
@@ -148,9 +144,41 @@ void Player::tickContent()
     // Players
     if (hasSelectedAnything == true)
     {
+        using namespace ImGui;
         ImGui::Begin("Player");
+        ImGuiID dock_player = ImGui::GetID("Player_Dock");
+        ImGui::DockSpace(dock_player, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None);
+        this->buildDock(dock_player);
+        ImGui::End();
+
+        ImGui::Begin("Scene (Player)", nullptr, ImGuiWindowFlags_NoMove);
         almagationScene();
         ImGui::End();
+
+        ImGui::Begin("Timeline", nullptr, ImGuiWindowFlags_NoMove);
+
+        ////Timeline of current selected recordings
+        const auto first_item = std::ranges::find_if(this->recordings, [](const auto &item) { return item.second; });
+        if (first_item != this->recordings.end())
+        {
+            const auto &recording = first_item->first;
+            if (ImGui::SliderFloat("Timeline", &this->timeline_slide_value, 0.0f, first_item->first->total_time, "%.3f",
+                                   ImGuiSliderFlags_AlwaysClamp))
+            {
+                unsigned int index = static_cast<unsigned int>(
+                    std::round(recording->getFrames().size() * this->timeline_slide_value / recording->total_time));
+                setFrameIndex(index);
+            }
+            if (ImGui::Button("Prev Frame"))
+            {
+                stepTimeline(-1);
+            }
+            if (ImGui::Button("Next Frame"))
+            {
+                stepTimeline(1);
+            }
+            ImGui::End();
+        }
     }
 
     if (hasSelectedAnything == false)
@@ -160,6 +188,36 @@ void Player::tickContent()
         this->review_panel.update(*this->universe);
         ImGui::End();
     }
+}
+
+void Player::buildDock(ImGuiID dock_player)
+{
+    static bool first = true;
+
+    if (!first)
+        return;
+    first = false;
+
+    using namespace ImGui;
+    DockBuilderRemoveNode(dock_player);
+    DockBuilderAddNode(dock_player, ImGuiDockNodeFlags_DockSpace);
+    DockBuilderSetNodeSize(dock_player, ImGui::GetWindowSize());
+
+    ImGuiID dock_main = dock_player;
+    ImGuiID dock_bot = DockBuilderSplitNode(dock_player, ImGuiDir_Down, 0.3f, nullptr, &dock_main);
+
+    DockBuilderDockWindow("Scene (Player)", dock_main);
+    DockBuilderDockWindow("Timeline", dock_bot);
+}
+
+void Player::stepTimeline(int i)
+{
+    const auto &first_item = std::ranges::find_if(this->recordings, [](const auto &item) { return item.second; });
+    const auto &recording = first_item->first;
+    auto current_frame_index =
+        static_cast<unsigned int>(std::round(this->timeline_float * (recording->getFrames().size() - 1)));
+    auto index_new = current_frame_index + i;
+    setFrameIndex(index_new);
 }
 
 std::string last_save = "";
@@ -191,11 +249,10 @@ void Player::saveAsExcel()
     auto wks = doc.workbook().worksheet("Sheet1");
 
     int index_X = 1;
-    for (auto &&[i, b] : std::views::enumerate(this->selected_recordings))
+    for (auto &&[recording, b] : this->recordings)
     {
         if (b)
         {
-            auto &recording = this->recordings[i];
             auto environment = static_cast<Environment>(*recording->universe->env);
             auto universe_config = environment.config;
 
@@ -353,7 +410,6 @@ void Player::tickRightBar()
     EnumCombo("Step Method", this->universe->physicConfig.step_config.step_type, methods);
 
     ImGui::InputDouble("Delta Time", &this->universe->physicConfig.step_config.delta_time);
-    ImGui::InputDouble("Total Time", &this->universe->physicConfig.step_config.total_time);
 
     ImGui::EndDisabled();
 
@@ -361,8 +417,8 @@ void Player::tickRightBar()
     if (!this->simulator.isRunningPreview() && ImGui::Button("Start"))
     {
         // Create recording
-        this->recordings.emplace_back(std::make_shared<Recording>());
-        auto &recording = this->recordings.back();
+        this->recordings.emplace_back(std::make_shared<Recording>(), false);
+        auto &recording = this->recordings.back().first;
 
         this->scenes_camera = std::make_shared<phys::Camera>(*universe->camera);
 
@@ -392,8 +448,9 @@ void Player::tickRightBar()
 
     if (recordings.size() > 0)
     {
-        status = recordings.back()->getStatusStr();
-        completion = recordings.back()->getCompletion();
+        auto &recording_back = recordings.back().first;
+        status = recording_back->getStatusStr();
+        completion = recording_back->getCompletion();
     }
 
     ImGui::Text("%s", status.c_str());
@@ -404,9 +461,10 @@ void Player::tickRightBar()
     ////Recordings resulted from simulator.
     ////Select recordings to view
     ImGui::BeginChild("Recordings", ImVec2(0, 100));
-    this->selected_recordings.resize(this->recordings.size());
-    for (const auto &&[i, recording] : std::views::enumerate(this->recordings))
+    this->recordings.resize(this->recordings.size());
+    for (auto &&[i, item] : std::views::enumerate(this->recordings))
     {
+        auto &&[recording, b] = item;
         if (recording->getStatus() >= 1)
         {
             ImGui::BeginDisabled(recording->getStatus() < 3);
@@ -414,7 +472,7 @@ void Player::tickRightBar()
             std::string check_str =
                 std::format("Recording {} ({},{})", i, getStepMetodStr(physics_config.step_config.step_type),
                             physics_config.step_config.delta_time);
-            ImGui::Checkbox(check_str.c_str(), reinterpret_cast<bool *>(&this->selected_recordings[i]));
+            ImGui::Checkbox(check_str.c_str(), reinterpret_cast<bool *>(&b));
             ImGui::EndDisabled();
         }
     }
@@ -422,11 +480,8 @@ void Player::tickRightBar()
     if (ImGui::Button("Clear Recordings"))
     {
         this->recordings.clear();
-        this->selected_recordings.clear();
+        this->recordings.clear();
     }
-
-    ////Timeline of current selected recordings
-    ImGui::SliderFloat("Timeline", &this->timeline_select, 0.0f, 1.0);
 
     if (ImGui::Button("Save Excel"))
     {
@@ -435,4 +490,18 @@ void Player::tickRightBar()
     ImGui::Text(last_save.c_str());
 
     ImGui::End();
+}
+
+void Player::setFrameIndex(unsigned int i)
+{
+
+    const auto &first_item = std::ranges::find_if(this->recordings, [](const auto &item) { return item.second; });
+    const auto &recording = first_item->first;
+
+    unsigned int frames_size = recording->getFrames().size();
+    if (i >= frames_size)
+        return;
+
+    this->timeline_float = static_cast<float>(i) / recording->getFrames().size();
+    this->timeline_frame_index = i;
 }

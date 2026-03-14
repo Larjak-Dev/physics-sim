@@ -8,6 +8,7 @@
 #include "glm/trigonometric.hpp"
 #include "tools/Debug.hpp"
 #include "tools/Units.hpp"
+#include "universe/Environment.hpp"
 #include <cmath>
 #include <glad/glad.h>
 #include <glm/ext/matrix_clip_space.hpp>
@@ -15,6 +16,9 @@
 #include <glm/ext/scalar_constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <limits>
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/intersect.hpp>
 #include <ranges>
 
 using namespace phys;
@@ -47,6 +51,44 @@ void Transform2D::recalculate(const Camera &cam, vec2u res)
         this->vp = this->p * this->v;
         this->vp_inverse = glm::inverse(this->vp);
     }
+}
+
+vec3d Renderer::cordOnTargetToWorldCord(vec2f cord_on_target, const Camera &cam, double z, sf::RenderTarget &target)
+{
+
+    this->transform2D.recalculate(cam, target.getSize());
+    auto vp_inverse = this->transform2D.vp_inverse;
+
+    vec2f screen_size = vec2f(vec2u(target.getSize()));
+    vec2f gl_cord = 2.0f * cord_on_target / screen_size - 1.0f;
+    vec4d world_cord = vp_inverse * vec4d(gl_cord.x, -gl_cord.y, z, 1.0);
+    return vec3d(world_cord);
+}
+
+unsigned int Renderer::cordOnTargetToBodyInWorld(vec2f cord_on_target, const Camera &cam, Environment &env,
+                                                 sf::RenderTarget &target)
+{
+    auto ray_start = cordOnTargetToWorldCord(cord_on_target, cam, -1.0, target);
+    auto ray_end = cordOnTargetToWorldCord(cord_on_target, cam, 1.0, target);
+    auto ray_delta_norm = glm::normalize(ray_end - ray_start);
+
+    double selected_distance = std::numeric_limits<double>::max();
+    Body *selected_body = nullptr;
+    for (auto &&[body, property] : std::views::zip(env.bodies, env.properties))
+    {
+        double distance = 0.0f;
+        if (glm::intersectRaySphere(ray_start, ray_delta_norm, body.pos, property.size.x * property.size.x, distance) &&
+            distance < selected_distance)
+        {
+            selected_body = &body;
+            selected_distance = distance;
+        }
+    }
+    if (selected_body)
+    {
+        return selected_body->id;
+    }
+    return 0;
 }
 
 void Renderer::render(const Environment &env, const Camera &cam, float transparency, Color color_addon)

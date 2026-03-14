@@ -20,6 +20,11 @@ class SceneWidget : private TextureWidget
   public:
     using TextureWidget::TextureWidget;
     void update(Universe &universe);
+
+  private:
+    unsigned int selected_body_id{0};
+    Body editing_body{};
+    phys::vec3d click_pos_world{};
 };
 
 class UniverseWidget : private SceneWidget
@@ -41,6 +46,11 @@ class AlmagationWidget : private TextureWidget
     void resize_ColorSpectrum(int amount);
     void resize_TransperancyFade(int amount);
     void update();
+
+  private:
+    unsigned int selected_body_id{};
+    Body editing_body{};
+    phys::vec3d click_pos_world{};
 };
 
 } // namespace phys::app

@@ -41,6 +41,10 @@ class Renderer
     void activate(sf::RenderTarget &target);
     void deactivate();
 
+    vec3d cordOnTargetToWorldCord(vec2f cord_on_target, const Camera &cam, double z, sf::RenderTarget &target);
+    unsigned int cordOnTargetToBodyInWorld(vec2f cord_on_target, const Camera &cam, Environment &env,
+                                           sf::RenderTarget &target);
+
     void render(const Environment &env, const Camera &cam, float transarency = 1.0f,
                 Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
     void renderGrid(double exponant, const Camera &cam, float transarency = 1.0f,

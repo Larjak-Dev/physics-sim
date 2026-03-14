@@ -70,6 +70,9 @@ class EnvironmentActive
     EnvironmentBase getEnvironment_safe();
     std::vector<Property> &getProperties_ref();
 
+    Body getBody(uint16_t bodyId);
+    bool setBody(uint16_t bodyId, Body body);
+
   private:
     Environment env;
     mutable std::mutex mtx;
