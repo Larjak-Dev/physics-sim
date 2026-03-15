@@ -21,6 +21,8 @@
 #include <glm/gtx/intersect.hpp>
 #include <ranges>
 
+#include "../tools/Debug.hpp"
+
 using namespace phys;
 
 Transform2D::Transform2D()
@@ -37,7 +39,7 @@ void Transform2D::recalculate(const Camera &cam, vec2u res)
         this->v = glm::lookAt(eye, cam.center, vec3d(0.0, 1.0, 0.0));
         changed = true;
     }
-    if (this->res != res)
+    if (this->res != res || this->camera != cam)
     {
         vec2d resd = vec2d(res);
         auto sv = cam.distance * resd / 300.0;
@@ -51,6 +53,8 @@ void Transform2D::recalculate(const Camera &cam, vec2u res)
         this->vp = this->p * this->v;
         this->vp_inverse = glm::inverse(this->vp);
     }
+    this->camera = cam;
+    this->res = res;
 }
 
 vec3d Renderer::cordOnTargetToWorldCord(vec2f cord_on_target, const Camera &cam, double z, sf::RenderTarget &target)

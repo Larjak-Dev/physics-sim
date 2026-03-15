@@ -12,8 +12,8 @@ namespace phys
 
 struct Transform2D
 {
-    Camera camera;
-    vec2u res;
+    Camera camera{};
+    vec2u res{};
 
     mat4d v;
     mat4d p;

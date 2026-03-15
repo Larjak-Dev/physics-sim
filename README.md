@@ -10,6 +10,7 @@ Features:
 * Compare multiple selected recordings side by side.
 * Export selected recordings into an Excel file.
 * Automatically calculates delta position and total energy between simulated body and calculated kinematic body. (Only if you use one of the environment presets)
+* Multi threaded
 
 External Libraries:
 * SFML https://github.com/SFML/SFML
@@ -17,6 +18,15 @@ External Libraries:
 * imgui-sfml https://github.com/SFML/imgui-sfml
 * glad https://github.com/Dav1dde/glad
 * glm https://github.com/g-truc/glm
+* OpenXLSX https://github.com/troldal/OpenXLSX
+
+
+Project Details:
+* Programmed in C++20 / 23 (As much as i can)
+* Pretty much no AI written code!
+* Most code in this project was written in one week. (No joke)
+* But i had previously already written and planned out an scrapped app similar to this. 
+
 
 Build Guide for windows:
 

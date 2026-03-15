@@ -25,7 +25,7 @@ class PhysicApp : public App
     void tick() override;
 
   private:
-    SlideType selectedSlide;
+    SlideType selectedSlide{SlideType::Editor};
     std::shared_ptr<Universe> universe;
     Editor editorSlide;
     Simulator simulatorSlide;

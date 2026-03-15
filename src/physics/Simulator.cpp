@@ -200,6 +200,7 @@ void Simulator::startPreview(const Universe &universe, std::shared_ptr<Recording
             StepBuffer step_buffer;
 
             int amount_frames = std::round(total_time / delta_time);
+            const auto physic_functions_copy = physic_functions;
 
             for (int i = 0; i < amount_frames; i++)
             {
@@ -213,7 +214,7 @@ void Simulator::startPreview(const Universe &universe, std::shared_ptr<Recording
                 recording->completion = static_cast<uint16_t>(100 * recording->frames.back().passed_time / total_time);
 
                 const auto env_prev = recording->frames.back();
-                const auto env_new = physic_functions.step(env_prev, delta_time, step_buffer);
+                const auto env_new = physic_functions_copy.step(env_prev, delta_time, step_buffer);
                 recording->frames.emplace_back(env_new);
 
                 /////Kinematics

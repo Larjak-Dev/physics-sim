@@ -14,6 +14,7 @@ using namespace phys::app;
 App::App(sf::VideoMode videoMode, std::string title, std::uint32_t style, sf::State state, sf::ContextSettings settings)
     : app_window(videoMode, title, style, state, settings)
 {
+    app_window.setVerticalSyncEnabled(true);
 }
 
 void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
@@ -39,6 +40,7 @@ void loadGlad()
 
 void App::start()
 {
+
     loadGlad();
     this->resourcesGl = std::make_shared<gl::ResourcesGl>();
     gl::setResourcesGL(this->resourcesGl);

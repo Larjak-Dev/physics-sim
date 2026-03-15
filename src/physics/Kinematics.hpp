@@ -8,7 +8,7 @@ namespace phys
 
 struct KinematicConfig
 {
-    phys::ForceType type;
+    phys::ForceType type{phys::ForceType::Null};
     double G{6.67430e-11};
     double mass_satelite{1000};
     double mass_planet{5.972e24};
