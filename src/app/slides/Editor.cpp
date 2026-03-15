@@ -16,31 +16,28 @@ void Editor::tickContent()
     ImGui::End();
 }
 
-void Editor::tickRightBar(std::shared_ptr<Universe> &universe_main)
+void Editor::tickKinematic(std::shared_ptr<Universe> &universe_main)
 {
-    // Config
-    ImGui::Begin("Control Panel");
-
     static const std::vector<std::pair<phys::ForceType, const char *>> force_types = {
         {phys::ForceType::FreeFall, "Free Fall"}, {phys::ForceType::Newtonian, "Satelite Orbit"}};
-    EnumCombo("Step Method", this->config.type, force_types);
+    EnumCombo("Kinematic Environment", this->kinematic_config.type, force_types);
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.2, 0.2, 0.2, 0.5));
     ImGui::BeginChild("Input", ImVec2(0, 100), ImGuiChildFlags_Borders);
-    switch (this->config.type)
+    switch (this->kinematic_config.type)
     {
     case phys::ForceType::FreeFall:
     {
-        ImGui::InputDouble("Acceleration", &config.acceleration, 0, 0, "%.4e m/s^2");
-        ImGui::InputDouble("Total Time", &config.time_fall, 0, 0, "%.4e s");
+        ImGui::InputDouble("Acceleration", &kinematic_config.acceleration, 0, 0, "%.4e m/s^2");
+        ImGui::InputDouble("Total Time", &kinematic_config.time_fall, 0, 0, "%.4e s");
     }
     break;
     case phys::ForceType::Newtonian:
     {
-        ImGui::InputDouble("G", &config.G, 0, 0, "%.6e F/kg");
-        ImGui::InputDouble("Mass Planet", &config.mass_planet, 0, 0, "%.4e");
-        ImGui::InputDouble("Distance", &config.distance, 0, 0, "%.4e m");
-        ImGui::InputDouble("Total Time", &config.time_satelite, 0, 0, "%.4e s");
+        ImGui::InputDouble("G", &kinematic_config.G, 0, 0, "%.6e F/kg");
+        ImGui::InputDouble("Mass Planet", &kinematic_config.mass_planet, 0, 0, "%.4e");
+        ImGui::InputDouble("Distance", &kinematic_config.distance, 0, 0, "%.4e m");
+        ImGui::InputDouble("Total Time", &kinematic_config.time_satelite, 0, 0, "%.4e s");
     }
     break;
     default:
@@ -51,16 +48,55 @@ void Editor::tickRightBar(std::shared_ptr<Universe> &universe_main)
 
     if (ImGui::Button("Configure"))
     {
-        if (this->config.type == ForceType::Null)
+        if (this->kinematic_config.type == ForceType::Null)
         {
             showMessage("Unvalid kinematic config");
         }
         else
         {
-            auto config_uni = phys::createKinematicScenario(this->config);
+            auto config_uni = phys::createKinematicScenario(this->kinematic_config);
             universe_main = std::make_shared<Universe>(createUniverse(config_uni));
         }
     }
+}
 
+void Editor::tickSolarSystem(std::shared_ptr<Universe> &universe_main)
+{
+
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.2, 0.2, 0.2, 0.5));
+    ImGui::BeginChild("Input", ImVec2(0, 100), ImGuiChildFlags_Borders);
+    ImGui::InputInt("Year", &this->planet_api.year);
+    ImGui::InputInt("Month", &this->planet_api.month);
+    ImGui::InputInt("Day", &this->planet_api.day);
+    ImGui::EndChild();
+    ImGui::PopStyleColor();
+
+    if (ImGui::Button("Configure"))
+    {
+        {
+            this->planet_api.createUniverse();
+            // universe_main = std::make_shared<Universe>(this->planet_api.createUniverse());
+        }
+    }
+}
+
+void Editor::tickRightBar(std::shared_ptr<Universe> &universe_main)
+{
+    // Config
+    ImGui::Begin("Control Panel");
+
+    static const std::vector<std::pair<PresetType, const char *>> preset_types = {
+        {PresetType::Kinematic, "Calculated Kinematics"}, {PresetType::SolarSystem, "Solar Sytem"}};
+    EnumCombo("Preset ", universe_type, preset_types);
+
+    switch (universe_type)
+    {
+    case phys::app::PresetType::Kinematic:
+        tickKinematic(universe_main);
+        break;
+    case phys::app::PresetType::SolarSystem:
+        tickSolarSystem(universe_main);
+        break;
+    }
     ImGui::End();
 }

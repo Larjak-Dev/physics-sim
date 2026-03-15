@@ -1,3 +1,5 @@
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 cmake_minimum_required(VERSION 3.24) # Upgraded to 3.24 for better FetchContent handling
 
 # 1. Project Setup
@@ -15,9 +17,21 @@ include(FetchContent)
 #DECLARE
 
 FetchContent_Declare(
+  json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.12.0
+)
+
+FetchContent_Declare(
+  cpr
+  GIT_REPOSITORY https://github.com/libcpr/cpr.git
+  GIT_TAG 1.14.2
+)
+
+FetchContent_Declare(
     OpenXLSX
     GIT_REPOSITORY https://github.com/troldal/OpenXLSX.git
-    GIT_TAG        master
+    GIT_TAG       5723411d47643ce3b5b9994064c26ca8cd841f13
 )
 
 FetchContent_Declare(
@@ -45,20 +59,32 @@ FetchContent_Declare(
     GIT_TAG        v3.0
 )
 
+
 #FETCH
+#json
+message(STATUS "Fetching json")
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+FetchContent_MakeAvailable(json)
+#cpr
+message(STATUS "Fetching cpr")
+set(BUILD_CPR_TESTS OFF CACHE INTERNAL "")
+FetchContent_MakeAvailable(cpr)
+#OpenXLSX
 message(STATUS "Fetching OpenXLSX")
 FetchContent_MakeAvailable(OpenXLSX)
+#glm
 message(STATUS "Fetching glm")
 FetchContent_MakeAvailable(glm)
+#imgui
 message(STATUS "Fetching imgui...")
 FetchContent_MakeAvailable(imgui)
+#SFML
 message(STATUS "Fetching SFML...")
 FetchContent_MakeAvailable(SFML)
-
+#imgui-sfml
 set(IMGUI_DIR ${imgui_SOURCE_DIR})
 set(IMGUI_SFML_FIND_SFML OFF)
 set(IMGUI_SFML_IMGUI_DEMO ON)
-
 message(STATUS "Fetching imgui-sfml...")
 FetchContent_MakeAvailable(imgui-sfml)
 
@@ -83,8 +109,10 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 
 find_package(OpenGL REQUIRED)
 
-# --- NEW: Link SFML & ImGui ---
+# --- Link
 target_link_libraries(${PROJECT_NAME} PRIVATE
+    nlohmann_json::nlohmann_json
+    cpr::cpr
     OpenGL::GL
     SFML::Graphics
     ImGui-SFML::ImGui-SFML

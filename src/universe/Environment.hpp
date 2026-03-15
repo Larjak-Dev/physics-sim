@@ -70,8 +70,9 @@ class EnvironmentActive
     EnvironmentBase getEnvironment_safe();
     std::vector<Property> &getProperties_ref();
 
-    Body getBody(uint16_t bodyId);
-    bool setBody(uint16_t bodyId, Body body);
+    std::pair<Body, Property> getBody(uint16_t bodyId);
+    bool setBody(uint16_t bodyId, std::pair<Body, Property> body);
+    void addBody(std::pair<Body, Property> body);
 
   private:
     Environment env;

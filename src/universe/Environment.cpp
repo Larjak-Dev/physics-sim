@@ -67,28 +67,44 @@ std::vector<Property> &EnvironmentActive::getProperties_ref()
     return this->env.properties;
 }
 
-Body EnvironmentActive::getBody(uint16_t bodyId)
+std::pair<Body, Property> EnvironmentActive::getBody(uint16_t bodyId)
 {
     std::lock_guard<std::mutex> mtxlock(this->mtx);
     auto body = std::ranges::find_if(this->env.bodies, [bodyId](auto &item) { return item.id == bodyId; });
     if (body != this->env.bodies.end())
     {
-        return *body;
+        int i = std::distance(env.bodies.begin(), body);
+        return {*body, this->env.properties[i]};
     }
-    return Body();
+    return {Body(), Property()};
 }
 
-bool EnvironmentActive::setBody(uint16_t bodyId, Body body_)
+bool EnvironmentActive::setBody(uint16_t bodyId, std::pair<Body, Property> pair)
 {
     std::lock_guard<std::mutex> mtxlock(this->mtx);
     auto body = std::ranges::find_if(this->env.bodies, [bodyId](auto &item) { return item.id == bodyId; });
     if (body != this->env.bodies.end())
     {
+        auto &body_ = pair.first;
         body->is_locked = body_.is_locked;
         body->mass = body_.mass;
         body->pos = body_.pos;
         body->vel = body_.vel;
+
+        int i = std::distance(env.bodies.begin(), body);
+        auto &property = this->env.properties[i];
+        auto &property_ = pair.second;
+        property.color = property_.color;
+        property.size = property_.size;
+
         return true;
     }
     return false;
+}
+
+void EnvironmentActive::addBody(std::pair<Body, Property> pair)
+{
+
+    std::lock_guard<std::mutex> mtxlock(this->mtx);
+    env.addBody(pair.first, pair.second);
 }

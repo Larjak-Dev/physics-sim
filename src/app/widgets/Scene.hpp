@@ -23,7 +23,7 @@ class SceneWidget : private TextureWidget
 
   private:
     unsigned int selected_body_id{0};
-    Body editing_body{};
+    std::pair<Body, Property> editing_pair{};
     phys::vec3d click_pos_world{};
 };
 
