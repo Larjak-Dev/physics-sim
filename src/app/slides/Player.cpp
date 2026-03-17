@@ -63,7 +63,7 @@ void Player::multipleScenes()
         scene_widget.universe->env->getProperties_ref() = recording->universe->env->getProperties_ref();
 
         // Render Scene widget
-        scene_widget.update();
+        scene_widget.update(true);
 
         ImGui::End();
     }
@@ -81,6 +81,16 @@ void Player::almagationScene()
     }
 
     const auto &recording_first = item_first->first;
+
+    const auto &frames_first = recording_first->getFrames();
+    const float frame_amount_first = frames_first.size();
+    int frame_index_first = std::round((frame_amount_first - 1) * this->timeline_float);
+
+    const auto env_first = recording_first->getFrames()[frame_index_first];
+    this->scene_widget_alm.universe->camera = this->scenes_camera;
+    this->scene_widget_alm.universe->env->setEnvironment_safe(env_first);
+    this->scene_widget_alm.universe->env->getProperties_ref() = universe->env->getProperties_ref();
+
     int has_kinematic = recording_first->getKinematicFrames().size() > 0;
 
     this->scene_widget_alm.resize_ColorSpectrum(has_kinematic + selected_amount);

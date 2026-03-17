@@ -37,6 +37,8 @@ class Renderer
   public:
     Transform2D transform2D;
     sf::RenderTarget *target{nullptr};
+    bool is_fixed_body_size{false};
+    float body_size{0.2};
 
     void activate(sf::RenderTarget &target);
     void deactivate();

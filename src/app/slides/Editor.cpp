@@ -3,6 +3,7 @@
 #include "../../physics/Kinematics.hpp"
 #include "../widgets/extra.hpp"
 #include "imgui.h"
+#include "physics/PlanetAPI.hpp"
 #include "tools/Debug.hpp"
 #include "tools/Error.hpp"
 #include "universe/PhysicConfig.hpp"
@@ -12,7 +13,7 @@ using namespace phys::app;
 void Editor::tickContent()
 {
     ImGui::Begin("Editor", nullptr);
-    this->reviewPanel.update(*this->universe);
+    this->reviewPanel.update(*this->universe, true);
     ImGui::End();
 }
 
@@ -65,17 +66,18 @@ void Editor::tickSolarSystem(std::shared_ptr<Universe> &universe_main)
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.2, 0.2, 0.2, 0.5));
     ImGui::BeginChild("Input", ImVec2(0, 100), ImGuiChildFlags_Borders);
-    ImGui::InputInt("Year", &this->planet_api.year);
-    ImGui::InputInt("Month", &this->planet_api.month);
-    ImGui::InputInt("Day", &this->planet_api.day);
+    ImGui::InputInt("Year", &this->planet_api.year_1);
+    ImGui::InputInt("Month", &this->planet_api.month_1);
+    ImGui::InputInt("Day", &this->planet_api.day_1);
+    ImGui::InputDouble("Total Time (Days):", &this->planet_api.total_days);
     ImGui::EndChild();
     ImGui::PopStyleColor();
 
     if (ImGui::Button("Configure"))
     {
         {
-            this->planet_api.createUniverse();
-            // universe_main = std::make_shared<Universe>(this->planet_api.createUniverse());
+            auto solar_systems = planet_api.fetchSolarSystem();
+            universe_main = std::make_shared<Universe>(solar_systems.universe_1);
         }
     }
 }

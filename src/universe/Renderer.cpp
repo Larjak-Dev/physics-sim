@@ -114,7 +114,8 @@ void Renderer::renderGrid(double scale, const Camera &cam, float transparency, C
     this->renderGrid2D(exponant_2, cam, shader, Color(1.0f, 1.0f, 1.0f), transparency);
 }
 
-mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const mat4d &vp_world)
+mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const mat4d &vp_world, bool fixed_size,
+                        float size)
 {
     auto sum_world = pos_world + size_world;
 
@@ -124,6 +125,7 @@ mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const mat
 
     mat4f model = mat4f(1.0f);
     model = glm::translate(model, vec3f(pos_scene));
+
     model = glm::scale(model, vec3f(size_scene));
     return model;
 }
@@ -158,7 +160,7 @@ void Renderer::renderGrid2D(double exponant, const Camera &cam, const gl::Shader
     const auto center_world = vec4d(glm::round(cam.center / scale) * scale, 1.0f);
     const auto size_world = vec4d{scale * amountGrid / 2.0, scale * amountGrid / 2.0, scale * amountGrid / 2.0, 0.0};
 
-    auto model = getModelTransform(center_world, size_world, vp_world);
+    auto model = getModelTransform(center_world, size_world, vp_world, false, 1.0);
     glProgramUniformMatrix4fv(shader.getShaderHandle(), 4, 1, GL_FALSE, glm::value_ptr(model));
 
     vertexArrayGrid.renderLines();
@@ -188,8 +190,12 @@ void Renderer::render2D(const Environment &env, const Camera &cam, const gl::Sha
     {
         auto pos_world = vec4d(body.pos, 1.0f);
         auto size_world = vec4d(env.properties[index].size, 0.0f);
+        if (is_fixed_body_size)
+        {
+            size_world = vec4d(1.0, 1.0, 1.0, 0.0) * cam.distance / 12.0;
+        }
 
-        auto model = getModelTransform(pos_world, size_world, vp_world);
+        auto model = getModelTransform(pos_world, size_world, vp_world, is_fixed_body_size, body_size);
         glProgramUniformMatrix4fv(shader.getShaderHandle(), 4, 1, GL_FALSE, glm::value_ptr(model));
 
         auto color = env.properties[index].color;

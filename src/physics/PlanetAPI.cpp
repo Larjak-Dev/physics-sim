@@ -1,31 +1,162 @@
 #include "PlanetAPI.hpp"
 #include "../tools/Error.hpp"
+#include "universe/PhysicConfig.hpp"
 #include <cpr/cpr.h>
 #include <filesystem>
 #include <format>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <regex>
 
 using namespace phys;
 using json = nlohmann::json;
 
-Universe PlanetAPI::createUniverse()
+struct PlanetID
 {
-    std::string dir_nasa = "nasa";
-    std::filesystem::create_directory(dir_nasa);
-    std::string filePath =
-        std::format("{}/solarsystem_earth_{}_{}_{}.json", dir_nasa, this->year, this->month, this->day);
+    std::string id;
+    std::string name;
+    phys::Color color;
+};
 
-    json data_earth;
-    if (!std::filesystem::exists(filePath))
+PlanetID getPlanetID(PlanetType planetType)
+{
+    std::string id;
+    std::string name;
+    phys::Color color;
+
+    switch (planetType)
+    {
+    case PlanetType::Sun:
+        id = "10";
+        name = "Sun";
+        color = {255, 255, 100};
+        break;
+    case PlanetType::Mercury:
+
+        id = "199";
+        name = "Mercury";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Venus:
+
+        id = "299";
+        name = "Venus";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Earth:
+
+        id = "399";
+        name = "Earth";
+        color = {0, 150, 0};
+        break;
+    case PlanetType::Mars:
+
+        id = "499";
+        name = "Mars";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Jupiter:
+
+        id = "599";
+        name = "Jupiter";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Saturn:
+
+        id = "699";
+        name = "Saturn";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Uranus:
+
+        id = "799";
+        name = "Uranus";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Neptune:
+
+        id = "899";
+        name = "Neptune";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Moon:
+
+        id = "301";
+        name = "Moon";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Ganymede:
+
+        id = "503";
+        name = "Ganymede";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Titan:
+
+        id = "606";
+        name = "Titan";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Callisto:
+
+        id = "504";
+        name = "Callisto";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Io:
+
+        id = "501";
+        name = "Io";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Europa:
+
+        id = "502";
+        name = "Europa";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Triton:
+
+        id = "801";
+        name = "Trition";
+        color = {150, 150, 150};
+        break;
+    case PlanetType::Pluto:
+
+        id = "999";
+        name = "Pluto";
+        color = {150, 150, 150};
+        break;
+    default:
+        assert(false && "Unvalid PlanetType");
+        break;
+    }
+    return PlanetID{id, name, color};
+}
+
+PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)
+{
+    PlanetID planet = getPlanetID(planetType);
+    const auto planet_id = planet.id;
+
+    const bool always_create_file = false;
+    const std::string dir_nasa = "nasa";
+    const std::string filePath =
+        std::format("{}/solarsystem_{}_{}_{}_{}_{}_{}_{}.json", dir_nasa, planet.name, this->year_1, this->month_1,
+                    this->day_1, this->year_2, this->month_2, this->day_2);
+
+    std::filesystem::create_directory(dir_nasa);
+
+    json data_planet;
+    if (!std::filesystem::exists(filePath) || always_create_file)
     {
 
         const std::string link =
             std::format("https://ssd.jpl.nasa.gov/api/"
-                        "horizons.api?format=json&COMMAND='399'&OBJ_DATA='YES'&MAKE_EPHEM='YES'&EPHEM_TYPE='VECTORS'&"
+                        "horizons.api?format=json&COMMAND='{}'&OBJ_DATA='YES'&MAKE_EPHEM='YES'&EPHEM_TYPE='VECTORS'&"
                         "CENTER='500@0'&START_TIME='{}-{}-{}'&STOP_TIME='{}-{}-{}'&STEP_SIZE='1d'",
-                        year, month, day, year, month, day + 1);
+                        planet.id, year_1, month_1, day_1, year_2, month_2, day_2);
 
         std::cout << std::format("Fetching from: {}", link);
         auto r = cpr::Get(cpr::Url{link}, cpr::VerifySsl{false});
@@ -33,7 +164,7 @@ Universe PlanetAPI::createUniverse()
         {
 
             std::cout << "Successful respons!";
-            data_earth = json::parse(r.text);
+            data_planet = json::parse(r.text);
 
             std::ofstream file_out(filePath);
             file_out << r.text;
@@ -48,14 +179,169 @@ Universe PlanetAPI::createUniverse()
     else
     {
         std::ifstream file_input(filePath);
-        data_earth.parse(file_input);
+        data_planet = json::parse(file_input);
     }
 
-    std::string result = data_earth["result"];
+    const std::string result = data_planet["result"];
+    const std::regex regex_number(R"([-+]?\d*\.?\d+([eE][-+]?\d+)?)");
 
-    size_t start = result.find("$$SOE");
-    size_t end = result.find("$$EOE");
-    std::string data = result.substr(start, end);
+    /////Mass and Radius
+    const size_t start_m = result.find("Mass");
+    const size_t end_m = result.find("layers");
+    const std::string mass_data = result.substr(start_m, end_m);
 
-    return Universe();
+    const auto regex_m_begin = std::sregex_iterator(mass_data.begin(), mass_data.end(), regex_number);
+    const auto regex_m_end = std::sregex_iterator();
+
+    auto i_m = regex_m_begin;
+    std::advance(i_m, 1);
+    const auto MASS_E_MULTIPLE = *i_m;
+    std::advance(i_m, 1);
+    const auto MASS_E = *i_m;
+    std::advance(i_m, 2);
+    const auto RADIUS = *i_m;
+
+    {
+        int index_it = 0;
+        for (auto i = regex_m_begin; i != regex_m_end; i++)
+        {
+            std::smatch match = *i;
+            std::string match_str = match.str();
+            auto print_string = std::format("{}, {}", index_it++, match_str);
+            std::cout << print_string << std::endl;
+        }
+    }
+
+    /////Cordinates and Velocity
+    const size_t start = result.find("$$SOE");
+    const size_t end = result.find("$$EOE");
+    const std::string unit_data = result.substr(start, end);
+
+    const auto regex_begin = std::sregex_iterator(unit_data.begin(), unit_data.end(), regex_number);
+    const auto regex_end = std::sregex_iterator();
+
+    // Just learned some regex, this stuff is AWSOME!!
+    {
+        int index_it = 0;
+        for (auto i = regex_begin; i != regex_end; i++)
+        {
+            std::smatch match = *i;
+            std::string match_str = match.str();
+            auto print_string = std::format("{}, {}", index_it++, match_str);
+            std::cout << print_string << std::endl;
+        }
+    }
+
+    auto i_1 = regex_begin;
+    std::advance(i_1, 6);
+    const auto X1 = *i_1;
+    const auto Y1 = *(++i_1);
+    const auto Z1 = *(++i_1);
+
+    const auto X_V1 = *(++i_1);
+    const auto Y_V1 = *(++i_1);
+    const auto Z_V1 = *(++i_1);
+
+    auto i_2 = i_1;
+    std::advance(i_2, 15);
+    const auto X2 = *i_2;
+    const auto Y2 = *(++i_2);
+    const auto Z2 = *(++i_2);
+
+    const auto X_V2 = *(++i_2);
+    const auto Y_V2 = *(++i_2);
+    const auto Z_V2 = *(++i_2);
+
+    // Values
+    double x1 = std::stod(X1.str());
+    double y1 = std::stod(Y1.str());
+    double z1 = std::stod(Z1.str());
+
+    double x_v1 = std::stod(X_V1.str());
+    double y_v1 = std::stod(Y_V1.str());
+    double z_v1 = std::stod(Z_V1.str());
+
+    double x2 = std::stod(X2.str());
+    double y2 = std::stod(X2.str());
+    double z2 = std::stod(X2.str());
+
+    double x_v2 = std::stod(X_V2.str());
+    double y_v2 = std::stod(Y_V2.str());
+    double z_v2 = std::stod(Z_V2.str());
+
+    vec3d pos_1 = {x1, y1, z1};
+    vec3d vel_1 = {x_v1, y_v1, z_v1};
+    vec3d pos_2 = {x2, y2, z2};
+    vec3d vel_2 = {x_v2, y_v2, z_v2};
+
+    pos_1 *= 1000.0;
+    vel_1 *= 1000.0;
+    pos_2 *= 1000.0;
+    vel_2 *= 1000.0;
+
+    double mass_e = std::stod(MASS_E.str());
+    double mass_e_multiple = std::stod(MASS_E_MULTIPLE.str());
+    double mass = mass_e * std::pow(10.0, mass_e_multiple);
+
+    double radius = std::stod(RADIUS.str());
+    radius *= 1000.0;
+
+    // Results
+    Body body_1;
+    body_1.is_locked = false;
+    body_1.mass = mass;
+    body_1.pos = pos_1;
+    body_1.vel = vel_1;
+
+    Body body_2;
+    body_2.is_locked = false;
+    body_2.mass = mass;
+    body_2.pos = pos_2;
+    body_2.vel = vel_2;
+
+    Property prop;
+    prop.color = planet.color;
+    prop.size = {radius, radius, radius};
+
+    return {body_1, body_2, prop};
+}
+SolarSystemResult PlanetAPI::fetchSolarSystem()
+{
+    auto moon = fetchPlanet(PlanetType::Moon);
+
+    auto mercury = fetchPlanet(PlanetType::Mercury);
+    auto venus = fetchPlanet(PlanetType::Venus);
+    auto earth = fetchPlanet(PlanetType::Earth);
+    auto mars = fetchPlanet(PlanetType::Mars);
+    auto jupiter = fetchPlanet(PlanetType::Jupiter);
+    auto saturn = fetchPlanet(PlanetType::Saturn);
+    auto uranus = fetchPlanet(PlanetType::Uranus);
+    auto neptune = fetchPlanet(PlanetType::Neptune);
+
+    auto sun = fetchPlanet(PlanetType::Sun);
+
+    SolarSystemResult result;
+    auto &universe_1 = result.universe_1;
+    auto &universe_2 = result.universe_2;
+
+    universe_1.env->addBody({moon.body_1, moon.prop});
+
+    universe_1.env->addBody({mercury.body_1, mercury.prop});
+    universe_1.env->addBody({venus.body_1, venus.prop});
+    universe_1.env->addBody({mars.body_1, mars.prop});
+    universe_1.env->addBody({jupiter.body_1, jupiter.prop});
+    universe_1.env->addBody({saturn.body_1, saturn.prop});
+    universe_1.env->addBody({uranus.body_1, uranus.prop});
+    universe_1.env->addBody({neptune.body_1, neptune.prop});
+
+    universe_1.env->addBody({sun.body_1, sun.prop});
+
+    universe_1.camera->distance = 1e10;
+    universe_1.physicConfig.force_config.force_type = ForceType::Newtonian;
+    universe_1.physicConfig.force_config.newtonian_config.G = 6.67430e-11;
+
+    universe_1.physicConfig.step_config.delta_time = 86400;
+    universe_1.physicConfig.step_config.total_time = this->total_days * 86400;
+
+    return result;
 }

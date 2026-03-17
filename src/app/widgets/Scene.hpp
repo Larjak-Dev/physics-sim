@@ -15,11 +15,11 @@ class TextureWidget
     void update();
 };
 
-class SceneWidget : private TextureWidget
+class SceneWidget : protected TextureWidget
 {
   public:
     using TextureWidget::TextureWidget;
-    void update(Universe &universe);
+    void update(Universe &universe, bool should_clear = true);
 
   private:
     unsigned int selected_body_id{0};
@@ -27,16 +27,16 @@ class SceneWidget : private TextureWidget
     phys::vec3d click_pos_world{};
 };
 
-class UniverseWidget : private SceneWidget
+class UniverseWidget : protected SceneWidget
 {
   public:
     std::shared_ptr<Universe> universe;
 
     UniverseWidget();
-    void update();
+    void update(bool should_clear = true);
 };
 
-class AlmagationWidget : private TextureWidget
+class AlmagationWidget : public UniverseWidget
 {
   public:
     std::vector<std::shared_ptr<Universe>> universes;

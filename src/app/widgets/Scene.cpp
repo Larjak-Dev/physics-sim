@@ -107,7 +107,7 @@ void updateInputs(ImVec2 cursor, phys::Universe &universe, sf::RenderTexture &te
     }
 }
 
-void SceneWidget::update(phys::Universe &universe)
+void SceneWidget::update(phys::Universe &universe, bool should_clear)
 {
     if (!universe.env)
     {
@@ -124,7 +124,8 @@ void SceneWidget::update(phys::Universe &universe)
 
     // update texture widget
     TextureWidget::update();
-    this->texture.clear();
+    if (should_clear)
+        this->texture.clear();
     updateInputs(cursor, universe, texture, this->selected_body_id, this->click_pos_world);
 
     // Render Texture widget
@@ -154,6 +155,28 @@ void SceneWidget::update(phys::Universe &universe)
         ImGui::Text("Zoom:");
         ImGui::SameLine();
         ImGui::InputDouble("##zoom", &universe.camera->distance, 0.0, 0.0, "%.2e");
+        ImGui::Text("Rendering:");
+        ImGui::Text("Fixed Size:");
+        ImGui::SameLine();
+        ImGui::Checkbox("##fixed", &universe.renderer.is_fixed_body_size);
+        ImGui::EndChild();
+    }
+
+    auto env = static_cast<Environment>(*universe.env);
+    if (ImGui::CollapsingHeader("Bodies"))
+    {
+
+        ImGui::BeginChild("Bodies", ImVec2(150, 100), ImGuiChildFlags_Borders);
+        for (auto &&[body, prop] : std::views::zip(env.bodies, env.properties))
+        {
+            std::string button_text = std::format("Body {}", body.id);
+            if (ImGui::Button(button_text.c_str()))
+            {
+                auto &camera = *universe.camera;
+                camera.center = body.pos;
+                camera.distance = prop.size.x * 3.0;
+            }
+        }
         ImGui::EndChild();
     }
 
@@ -354,7 +377,7 @@ UniverseWidget::UniverseWidget()
 {
     this->universe = std::make_shared<Universe>();
 }
-void UniverseWidget::update()
+void UniverseWidget::update(bool should_clear)
 {
 
     if (!universe)
@@ -362,7 +385,7 @@ void UniverseWidget::update()
         ImGui::Text("Uninitialised Universe");
         return;
     }
-    SceneWidget::update(*this->universe);
+    SceneWidget::update(*this->universe, should_clear);
 }
 
 void AlmagationWidget::resize(int amount)
@@ -430,20 +453,16 @@ void AlmagationWidget::update()
         ImGui::Text("Uninitialised Camera!");
         return;
     }
-    auto cursor = ImGui::GetCursorPos();
-
-    TextureWidget::update();
-    updateInputs(cursor, *this->universes[0], texture, this->selected_body_id, this->click_pos_world);
 
     this->texture.clear();
-    this->universes[0]->renderer.activate(this->texture);
-    this->universes[0]->renderer.renderGrid(1, *this->universes[0]->camera, 1.0f, Color(0.5, 0.5, 0.5, 1.0));
+    this->universe->renderer.activate(this->texture);
     for (auto &&[i, universe] : std::views::enumerate(this->universes))
     {
         if (!universe || !universe->env)
             continue;
-        this->universes[0]->renderer.render(static_cast<Environment>(*universe->env), *this->universes[0]->camera,
-                                            this->properties[i].first, this->properties[i].second);
+        this->universe->renderer.render(static_cast<Environment>(*universe->env), *this->universes[0]->camera,
+                                        this->properties[i].first, this->properties[i].second);
     }
-    this->universes[0]->renderer.deactivate();
+    this->universe->renderer.deactivate();
+    UniverseWidget::update(false);
 }
