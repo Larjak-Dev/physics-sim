@@ -1,4 +1,5 @@
 #pragma once
+#include "../gl/GladWrap.hpp"
 #include "../tools/Units.hpp"
 #include "PhysicConfig.hpp"
 #include <mutex>
@@ -28,6 +29,7 @@ struct Property
 {
     Color color{1.0f, 0, 0, 1.0f};
     vec3d size{1.0, 1.0, 1.0};
+    gl::Texture *texture{nullptr};
 };
 
 using Properties = std::vector<Property>;

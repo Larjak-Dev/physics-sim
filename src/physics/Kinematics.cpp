@@ -77,7 +77,7 @@ Universe phys::createUniverse(const UniverseConfig config)
         body_s.prev_pos = {0.0, 0.0, 0.0};
         body_s.vel = {0.0, 0.0, 0.0};
         Property property_s;
-        property_s.color = Color(255, 0, 0, 255);
+        property_s.color = Color(1.0f, 0, 0, 1.0f);
         property_s.size = {2, 2, 2};
         env.addBody(body_s, property_s);
 

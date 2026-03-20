@@ -37,8 +37,11 @@ class Renderer
   public:
     Transform2D transform2D;
     sf::RenderTarget *target{nullptr};
-    bool is_fixed_body_size{false};
-    float body_size{0.2};
+    gl::FrameBuffer frameBuffer{};
+
+    Renderer();
+    Renderer(const Renderer &other);
+    Renderer &operator=(const Renderer &other);
 
     void activate(sf::RenderTarget &target);
     void deactivate();
@@ -46,6 +49,7 @@ class Renderer
     vec3d cordOnTargetToWorldCord(vec2f cord_on_target, const Camera &cam, double z, sf::RenderTarget &target);
     unsigned int cordOnTargetToBodyInWorld(vec2f cord_on_target, const Camera &cam, Environment &env,
                                            sf::RenderTarget &target);
+    void clear(Color background);
 
     void render(const Environment &env, const Camera &cam, float transarency = 1.0f,
                 Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
@@ -53,9 +57,9 @@ class Renderer
                     Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
 
   private:
-    void renderGrid2D(double exponant, const Camera &cam, const gl::Shader &shader,
+    void renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &shader,
                       Color color = Color(1.0, 1.0, 1.0, 1.0), float transarency = 1.0f);
-    void render2D(const Environment &env, const Camera &cam, const gl::Shader &shader);
+    void render2D(const Environment &env, const Camera &cam, gl::ShaderMain &shader);
 
     // void render3D(sf::RenderTarget& target, sf::Vector2u size, const Environment& env, const Camera& cam);
 };

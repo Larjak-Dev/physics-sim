@@ -130,6 +130,7 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
 
     // Render Texture widget
     universe.renderer.activate(this->texture);
+    universe.renderer.clear(Color::Black);
     universe.renderer.renderGrid(1, *universe.camera, 1.0f, Color(0.5, 0.5, 0.5, 1.0));
     universe.renderer.render(static_cast<Environment>(*universe.env), *universe.camera);
     universe.renderer.deactivate();
@@ -155,10 +156,19 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         ImGui::Text("Zoom:");
         ImGui::SameLine();
         ImGui::InputDouble("##zoom", &universe.camera->distance, 0.0, 0.0, "%.2e");
+
         ImGui::Text("Rendering:");
+
+        ImGui::Text("Scaled Size:");
+        ImGui::SameLine();
+        ImGui::Checkbox("##isScale", &universe.camera->is_scaled_body_size);
+        ImGui::InputDouble("##scale_size", &universe.camera->body_scale);
+
         ImGui::Text("Fixed Size:");
         ImGui::SameLine();
-        ImGui::Checkbox("##fixed", &universe.renderer.is_fixed_body_size);
+        ImGui::Checkbox("##isFixed", &universe.camera->is_fixed_body_size);
+        ImGui::InputDouble("##fixed_size", &universe.camera->fixed_size);
+
         ImGui::EndChild();
     }
 
@@ -310,8 +320,15 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
             ImGui::OpenPopup("Summon");
         };
 
+        // SUMMON
         if (ImGui::BeginPopupModal("Summon"))
         {
+            auto avail = ImGui::GetContentRegionAvail();
+            float height = ImGui::GetFrameHeight();
+
+            auto child_size = ImVec2(avail.x, avail.y - height - 5);
+            ImGui::BeginChild("Inputs", child_size);
+
             auto &editing_body = editing_pair.first;
             ImGui::Text("Mass:");
             ImGui::SameLine();
@@ -354,6 +371,8 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
                 ImGui::SameLine();
                 ImGui::InputDouble("##z_size", &editing_property.size.z, 0.0, 0.0, "%.2e");
             }
+
+            ImGui::EndChild();
 
             if (ImGui::Button("Confirm"))
             {

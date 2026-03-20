@@ -1,5 +1,7 @@
 #include "PlanetAPI.hpp"
 #include "../tools/Error.hpp"
+#include "gl/GladWrap.hpp"
+#include "gl/ResourcesGl.hpp"
 #include "universe/PhysicConfig.hpp"
 #include <cpr/cpr.h>
 #include <filesystem>
@@ -17,6 +19,7 @@ struct PlanetID
     std::string id;
     std::string name;
     phys::Color color;
+    gl::Texture *texture;
 };
 
 PlanetID getPlanetID(PlanetType planetType)
@@ -24,115 +27,126 @@ PlanetID getPlanetID(PlanetType planetType)
     std::string id;
     std::string name;
     phys::Color color;
+    gl::Texture *texture{nullptr};
 
     switch (planetType)
     {
     case PlanetType::Sun:
         id = "10";
         name = "Sun";
-        color = {255, 255, 100};
+        color = {1.0f, 1.0f, 0.4f};
+        texture = &gl::getResourcesGL()->sun;
         break;
     case PlanetType::Mercury:
 
         id = "199";
         name = "Mercury";
-        color = {150, 150, 150};
+        color = {0.6f, 0.6f, 0.6f};
+        texture = &gl::getResourcesGL()->mercury;
         break;
     case PlanetType::Venus:
 
         id = "299";
         name = "Venus";
-        color = {150, 150, 150};
+        color = {0.7f, 0.7f, 0.5f};
+        texture = &gl::getResourcesGL()->venus;
         break;
     case PlanetType::Earth:
 
         id = "399";
         name = "Earth";
-        color = {0, 150, 0};
+        color = {0, 0.5f, 0};
+        texture = &gl::getResourcesGL()->earth_day;
         break;
     case PlanetType::Mars:
 
         id = "499";
         name = "Mars";
-        color = {150, 150, 150};
+        color = {0.8f, 0.3f, 0.2f};
+        texture = &gl::getResourcesGL()->mars;
         break;
     case PlanetType::Jupiter:
 
         id = "599";
         name = "Jupiter";
-        color = {150, 150, 150};
+        color = {0.0, 1.0, 1.0};
+        texture = &gl::getResourcesGL()->jupiter;
         break;
     case PlanetType::Saturn:
 
         id = "699";
         name = "Saturn";
-        color = {150, 150, 150};
+        color = {0.8f, 0.8f, 0.6f};
+        texture = &gl::getResourcesGL()->saturn;
         break;
     case PlanetType::Uranus:
 
         id = "799";
         name = "Uranus";
-        color = {150, 150, 150};
+        color = {0.6f, 0.8f, 0.9f};
+        texture = &gl::getResourcesGL()->uranus;
         break;
     case PlanetType::Neptune:
 
         id = "899";
         name = "Neptune";
-        color = {150, 150, 150};
+        color = {0.4f, 0.6f, 0.9f};
+        texture = &gl::getResourcesGL()->neptune;
         break;
     case PlanetType::Moon:
 
         id = "301";
         name = "Moon";
-        color = {150, 150, 150};
+        color = {0.7f, 0.7f, 0.7f};
+        texture = &gl::getResourcesGL()->moon;
         break;
     case PlanetType::Ganymede:
 
         id = "503";
         name = "Ganymede";
-        color = {150, 150, 150};
+        color = {0.6f, 0.5f, 0.4f};
         break;
     case PlanetType::Titan:
 
         id = "606";
         name = "Titan";
-        color = {150, 150, 150};
+        color = {0.9f, 0.8f, 0.3f};
         break;
     case PlanetType::Callisto:
 
         id = "504";
         name = "Callisto";
-        color = {150, 150, 150};
+        color = {0.4f, 0.4f, 0.4f};
         break;
     case PlanetType::Io:
 
         id = "501";
         name = "Io";
-        color = {150, 150, 150};
+        color = {0.9f, 0.9f, 0.2f};
         break;
     case PlanetType::Europa:
 
         id = "502";
         name = "Europa";
-        color = {150, 150, 150};
+        color = {0.8f, 0.7f, 0.6f};
         break;
     case PlanetType::Triton:
 
         id = "801";
         name = "Trition";
-        color = {150, 150, 150};
+        color = {0.8f, 0.8f, 0.8f};
         break;
     case PlanetType::Pluto:
 
         id = "999";
         name = "Pluto";
-        color = {150, 150, 150};
+        color = {0.7f, 0.6f, 0.5f};
         break;
     default:
         assert(false && "Unvalid PlanetType");
         break;
     }
-    return PlanetID{id, name, color};
+    return PlanetID{id, name, color, texture};
 }
 
 PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)
@@ -185,7 +199,7 @@ PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)
     const std::string result = data_planet["result"];
     const std::regex regex_number(R"([-+]?\d*\.?\d+([eE][-+]?\d+)?)");
 
-    /////Mass and Radius
+    /////Mass
     const size_t start_m = result.find("Mass");
     const size_t end_m = result.find("layers");
     const std::string mass_data = result.substr(start_m, end_m);
@@ -198,12 +212,21 @@ PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)
     const auto MASS_E_MULTIPLE = *i_m;
     std::advance(i_m, 1);
     const auto MASS_E = *i_m;
-    std::advance(i_m, 2);
-    const auto RADIUS = *i_m;
+
+    // Radius
+    const size_t start_r = result.find("radius");
+    const size_t end_r = result.find("layers");
+    const std::string data_r = result.substr(start_r, end_r);
+
+    const auto regex_r_begin = std::sregex_iterator(data_r.begin(), data_r.end(), regex_number);
+    const auto regex_r_end = std::sregex_iterator();
+
+    auto i_r = regex_r_begin;
+    const auto RADIUS = *i_r;
 
     {
         int index_it = 0;
-        for (auto i = regex_m_begin; i != regex_m_end; i++)
+        for (auto i = regex_r_begin; i != regex_r_end; i++)
         {
             std::smatch match = *i;
             std::string match_str = match.str();
@@ -262,8 +285,8 @@ PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)
     double z_v1 = std::stod(Z_V1.str());
 
     double x2 = std::stod(X2.str());
-    double y2 = std::stod(X2.str());
-    double z2 = std::stod(X2.str());
+    double y2 = std::stod(Y2.str());
+    double z2 = std::stod(Z2.str());
 
     double x_v2 = std::stod(X_V2.str());
     double y_v2 = std::stod(Y_V2.str());
@@ -302,6 +325,7 @@ PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)
     Property prop;
     prop.color = planet.color;
     prop.size = {radius, radius, radius};
+    prop.texture = planet.texture;
 
     return {body_1, body_2, prop};
 }
@@ -328,6 +352,7 @@ SolarSystemResult PlanetAPI::fetchSolarSystem()
 
     universe_1.env->addBody({mercury.body_1, mercury.prop});
     universe_1.env->addBody({venus.body_1, venus.prop});
+    universe_1.env->addBody({earth.body_1, earth.prop});
     universe_1.env->addBody({mars.body_1, mars.prop});
     universe_1.env->addBody({jupiter.body_1, jupiter.prop});
     universe_1.env->addBody({saturn.body_1, saturn.prop});

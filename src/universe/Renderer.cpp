@@ -25,6 +25,33 @@
 
 using namespace phys;
 
+Renderer::Renderer()
+{
+}
+
+Renderer::Renderer(const Renderer &other)
+{
+    this->transform2D = other.transform2D;
+    this->target = other.target;
+    if (other.target)
+    {
+        this->frameBuffer.resize(other.target->getSize());
+    }
+}
+
+Renderer &Renderer::operator=(const Renderer &other)
+{
+    if (this == &other)
+        return *this;
+    this->transform2D = other.transform2D;
+    this->target = other.target;
+    if (other.target)
+    {
+        this->frameBuffer.resize(other.target->getSize());
+    }
+    return *this;
+}
+
 Transform2D::Transform2D()
 {
     this->p_gl = mat4f(1.0f);
@@ -80,8 +107,17 @@ unsigned int Renderer::cordOnTargetToBodyInWorld(vec2f cord_on_target, const Cam
     Body *selected_body = nullptr;
     for (auto &&[body, property] : std::views::zip(env.bodies, env.properties))
     {
+        double radius = property.size.x;
+        if (cam.is_fixed_body_size)
+        {
+            radius = 1 * cam.distance * cam.fixed_size / 12.0;
+        }
+        else if (cam.is_scaled_body_size)
+        {
+            radius = property.size.x * cam.body_scale;
+        }
         double distance = 0.0f;
-        if (glm::intersectRaySphere(ray_start, ray_delta_norm, body.pos, property.size.x * property.size.x, distance) &&
+        if (glm::intersectRaySphere(ray_start, ray_delta_norm, body.pos, radius * radius, distance) &&
             distance < selected_distance)
         {
             selected_body = &body;
@@ -95,13 +131,49 @@ unsigned int Renderer::cordOnTargetToBodyInWorld(vec2f cord_on_target, const Cam
     return 0;
 }
 
+void Renderer::clear(Color background)
+{
+    this->frameBuffer.texture_1.clear(background);
+    this->frameBuffer.texture_2.clear(Color::Transparent);
+    this->frameBuffer.texture_3.clear(Color::Transparent);
+    this->frameBuffer.texture_4.clear(Color::Transparent);
+}
+
 void Renderer::render(const Environment &env, const Camera &cam, float transparency, Color color_addon)
 {
+    assert(this->target);
+    auto &target = *this->target;
 
     auto &shader = gl::getResourcesGL()->mainShader;
-    glProgramUniform1f(shader.getShaderHandle(), 10, transparency);
-    glProgramUniform4f(shader.getShaderHandle(), 9, color_addon.r, color_addon.g, color_addon.b, color_addon.a);
+    shader.setTransparency(transparency);
+    shader.setColorExt(color_addon);
+
+    this->frameBuffer.resize(target.getSize());
+    this->frameBuffer.activate(gl::FrameBuffer::Slot_1, gl::FrameBuffer::Slot_2, 0, 0);
     render2D(env, cam, shader);
+
+    /// Blur
+    // Horizontal Blur
+    auto &shader_blur = gl::getResourcesGL()->shader_blur;
+    this->frameBuffer.activate(gl::FrameBuffer::Slot_3, 0, 0, 0);
+    shader_blur.setTexture(this->frameBuffer.texture_1);
+    shader_blur.setIsVertical(false);
+    shader_blur.use();
+    gl::getResourcesGL()->quad.render();
+
+    // Vertical Blur
+    this->frameBuffer.activate(gl::FrameBuffer::Slot_1, 0, 0, 0);
+    shader_blur.setTexture(this->frameBuffer.texture_3);
+    shader_blur.setIsVertical(true);
+    shader_blur.use();
+    gl::getResourcesGL()->quad.render();
+
+    this->target->setActive(true);
+    shader.setMatrixM(mat4f(1.0f));
+    shader.setColor(Color(0.0f, 0.0f, 0.0f, 0.0f));
+    shader.use();
+    this->frameBuffer.texture_1.bindUnit(0);
+    gl::getResourcesGL()->quad.render();
 }
 
 void Renderer::renderGrid(double scale, const Camera &cam, float transparency, Color color)
@@ -110,12 +182,13 @@ void Renderer::renderGrid(double scale, const Camera &cam, float transparency, C
     double exponant_1 = std::floor(std::log10(cam.distance * 0.6));
     double exponant_2 = std::floor(std::log10(cam.distance) + 1);
     phys::showDebugF("Exponent: {}", exponant_1);
+    this->frameBuffer.resize(target->getSize());
+    this->frameBuffer.activate(gl::FrameBuffer::Slot_1, gl::FrameBuffer::Slot_2, 0, 0);
     this->renderGrid2D(exponant_1, cam, shader, Color(0.5f, 0.5f, 0.5f), transparency);
     this->renderGrid2D(exponant_2, cam, shader, Color(1.0f, 1.0f, 1.0f), transparency);
 }
 
-mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const mat4d &vp_world, bool fixed_size,
-                        float size)
+mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const mat4d &vp_world)
 {
     auto sum_world = pos_world + size_world;
 
@@ -130,24 +203,21 @@ mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const mat
     return model;
 }
 
-void Renderer::renderGrid2D(double exponant, const Camera &cam, const gl::Shader &shader, Color color,
-                            float transparency)
+void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &shader, Color color, float transparency)
 {
-
     assert(this->target);
     auto &target = *this->target;
 
     auto viewport = target.getSize();
     glViewport(0, 0, viewport.x, viewport.y);
-
-    glUseProgram(shader.getShaderHandle());
+    shader.use();
 
     mat4f vp_gl = mat4f(1.0f);
-    glProgramUniformMatrix4fv(shader.getShaderHandle(), 0, 1, GL_FALSE, glm::value_ptr(vp_gl));
+    shader.setMatrixVP(vp_gl);
 
-    glProgramUniform4f(shader.getShaderHandle(), 8, color.r, color.g, color.b, color.a);
-    glProgramUniform4f(shader.getShaderHandle(), 9, color.r, color.g, color.b, color.a);
-    glProgramUniform1f(shader.getShaderHandle(), 10, transparency);
+    shader.setColor(color);
+    shader.setColorExt(color);
+    shader.setTransparency(transparency);
 
     this->transform2D.recalculate(cam, target.getSize());
     auto vp_world = this->transform2D.vp;
@@ -160,13 +230,13 @@ void Renderer::renderGrid2D(double exponant, const Camera &cam, const gl::Shader
     const auto center_world = vec4d(glm::round(cam.center / scale) * scale, 1.0f);
     const auto size_world = vec4d{scale * amountGrid / 2.0, scale * amountGrid / 2.0, scale * amountGrid / 2.0, 0.0};
 
-    auto model = getModelTransform(center_world, size_world, vp_world, false, 1.0);
-    glProgramUniformMatrix4fv(shader.getShaderHandle(), 4, 1, GL_FALSE, glm::value_ptr(model));
+    auto model = getModelTransform(center_world, size_world, vp_world);
+    shader.setMatrixM(model);
 
     vertexArrayGrid.renderLines();
 }
 
-void Renderer::render2D(const Environment &env, const Camera &cam, const gl::Shader &shader)
+void Renderer::render2D(const Environment &env, const Camera &cam, gl::ShaderMain &shader)
 {
     assert(env.properties.size() >= env.bodies.size());
 
@@ -176,30 +246,47 @@ void Renderer::render2D(const Environment &env, const Camera &cam, const gl::Sha
     auto viewport = target.getSize();
     glViewport(0, 0, viewport.x, viewport.y);
 
-    glUseProgram(shader.getShaderHandle());
+    shader.use();
 
     mat4f vp_gl = mat4f(1.0f);
-    glProgramUniformMatrix4fv(shader.getShaderHandle(), 0, 1, GL_FALSE, glm::value_ptr(vp_gl));
+    shader.setMatrixVP(vp_gl);
 
+    // Pre calculate view project
     this->transform2D.recalculate(cam, target.getSize());
     auto vp_world = this->transform2D.vp;
 
-    // Bodies
+    // Render Bodies
     auto &vertexArray = gl::getResourcesGL()->sphere;
     for (auto [index, body] : std::views::enumerate(env.bodies))
     {
+        // Model Configuring
         auto pos_world = vec4d(body.pos, 1.0f);
         auto size_world = vec4d(env.properties[index].size, 0.0f);
-        if (is_fixed_body_size)
+        if (cam.is_fixed_body_size)
         {
-            size_world = vec4d(1.0, 1.0, 1.0, 0.0) * cam.distance / 12.0;
+            size_world = vec4d(1.0, 1.0, 1.0, 0.0) * cam.distance * cam.fixed_size / 12.0;
+        }
+        else if (cam.is_scaled_body_size)
+        {
+            size_world = vec4d(env.properties[index].size, 0.0f) * cam.body_scale;
         }
 
-        auto model = getModelTransform(pos_world, size_world, vp_world, is_fixed_body_size, body_size);
-        glProgramUniformMatrix4fv(shader.getShaderHandle(), 4, 1, GL_FALSE, glm::value_ptr(model));
+        auto model = getModelTransform(pos_world, size_world, vp_world);
+        shader.setMatrixM(model);
 
+        // Color + Texture
         auto color = env.properties[index].color;
-        glProgramUniform4f(shader.getShaderHandle(), 8, color.r, color.g, color.b, color.a);
+        if (env.properties[index].texture && cam.is_render_textures)
+        {
+            env.properties[index].texture->bindUnit(0);
+            shader.setColor({0, 0, 0, 0});
+        }
+        else
+        {
+            gl::getResourcesGL()->default_tex.bindUnit(0);
+            shader.setColor(color);
+        }
+
         vertexArray.render();
     }
 }

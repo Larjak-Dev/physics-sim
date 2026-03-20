@@ -2,6 +2,7 @@
 #include "glm/fwd.hpp"
 #include "tools/Units.hpp"
 #define PAR_SHAPES_IMPLEMENTATION
+#include <glm/gtc/type_ptr.hpp>
 #include <par_shapes.h>
 
 #include "GladWrap.hpp"
@@ -21,13 +22,10 @@ using namespace phys::gl;
 Texture::Texture()
 {
 }
-Texture::Texture(vec2u size)
-{
-    resize(size);
-}
 Texture::~Texture()
 {
-    glDeleteTextures(1, &texture_id);
+    if (texture_id)
+        glDeleteTextures(1, &texture_id);
 }
 
 void Texture::resize(vec2u size)
@@ -55,7 +53,7 @@ void Texture::loadFromImage(std::string path)
         auto width = image.getSize().x;
         auto height = image.getSize().y;
         resize({width, height});
-        glTextureSubImage2D(this->texture_id, 0, 0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, data);
+        glTextureSubImage2D(this->texture_id, 0, 0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, data);
         glGenerateTextureMipmap(this->texture_id);
     }
     else
@@ -67,25 +65,62 @@ void Texture::loadFromImage(std::string path)
     }
 }
 
-TextureRender::TextureRender(vec2u size) : Texture()
+void Texture::createColor(Color color)
 {
-    resize(size);
+    resize({40, 40});
+    float clearColor[] = {color.r, color.g, color.b, color.a};
+    glClearTexImage(this->texture_id, 0, GL_RGBA, GL_FLOAT, clearColor);
 }
 
-TextureRender::~TextureRender()
+void Texture::clear(Color color)
 {
-    Texture::~Texture();
+    float clearColor[4] = {color.r, color.g, color.b, color.a};
+    glClearTexImage(this->texture_id, 0, GL_RGBA, GL_FLOAT, &clearColor);
 }
 
-void TextureRender::resize(vec2u size)
+uint32_t Texture::getID()
 {
-    Texture::resize(size);
+    return this->texture_id;
 }
-void TextureRender::bindUnit(uint32_t unit)
+
+FrameBuffer::~FrameBuffer()
 {
 }
-void TextureRender::bindFrame()
+
+void FrameBuffer::resize(vec2u size)
 {
+    if (this->size == size)
+        return;
+    this->size = size;
+    glDeleteFramebuffers(1, &this->fbo_id);
+
+    glCreateFramebuffers(1, &this->fbo_id);
+
+    this->texture_1.resize(size);
+    this->texture_2.resize(size);
+    this->texture_3.resize(size);
+    this->texture_4.resize(size);
+
+    glNamedFramebufferTexture(this->fbo_id, GL_COLOR_ATTACHMENT0, this->texture_1.getID(), 0);
+    glNamedFramebufferTexture(this->fbo_id, GL_COLOR_ATTACHMENT1, this->texture_2.getID(), 0);
+    glNamedFramebufferTexture(this->fbo_id, GL_COLOR_ATTACHMENT2, this->texture_3.getID(), 0);
+    glNamedFramebufferTexture(this->fbo_id, GL_COLOR_ATTACHMENT3, this->texture_4.getID(), 0);
+
+    GLenum attatchments[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
+    glNamedFramebufferDrawBuffers(this->fbo_id, 4, attatchments);
+
+    if (glCheckNamedFramebufferStatus(this->fbo_id, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+    {
+        phys::showMessage("Failed to generate framebuffer!");
+    }
+}
+
+void FrameBuffer::activate(uint32_t attachment_1, uint32_t attachment_2, uint32_t attachment_3,
+                           uint32_t attachment_4) const
+{
+    GLenum attatchments[4] = {attachment_1, attachment_2, attachment_3, attachment_4};
+    glNamedFramebufferDrawBuffers(this->fbo_id, 4, attatchments);
+    glBindFramebuffer(GL_FRAMEBUFFER, this->fbo_id);
 }
 
 GLuint compileShader(GLenum type, const std::string &source)
@@ -163,6 +198,62 @@ GLuint Shader::getShaderHandle() const
     return this->shader_program;
 }
 
+void Shader::use() const
+{
+    glUseProgram(this->shader_program);
+}
+
+ShaderMain::ShaderMain() : Shader("assets/shader.vert", "assets/shader.frag")
+{
+    GLint loc = glGetUniformLocation(this->getShaderHandle(), "ourTexture");
+    glProgramUniform1i(this->getShaderHandle(), loc, 0);
+}
+
+void ShaderMain::setMatrixVP(mat4f view_projection)
+{
+
+    glProgramUniformMatrix4fv(this->getShaderHandle(), 0, 1, GL_FALSE, glm::value_ptr(view_projection));
+}
+void ShaderMain::setMatrixM(mat4f model)
+{
+
+    glProgramUniformMatrix4fv(this->getShaderHandle(), 4, 1, GL_FALSE, glm::value_ptr(model));
+}
+void ShaderMain::setColor(Color color)
+{
+    glProgramUniform4f(this->getShaderHandle(), 8, color.r, color.g, color.b, color.a);
+}
+void ShaderMain::setColorExt(Color color)
+{
+    glProgramUniform4f(this->getShaderHandle(), 9, color.r, color.g, color.b, color.a);
+}
+void ShaderMain::setTexture(Texture &texture)
+{
+    texture.bindUnit(0);
+}
+void ShaderMain::setTransparency(float transparency)
+{
+    glProgramUniform1f(this->getShaderHandle(), 10, transparency);
+}
+void ShaderMain::setBrightness(float brightness)
+{
+    glProgramUniform1f(this->getShaderHandle(), 11, brightness);
+}
+
+ShaderBlur::ShaderBlur() : Shader("assets/shader_blur.vert", "assets/shader_blur.frag")
+{
+    glProgramUniform1i(this->getShaderHandle(), 0, 0);
+}
+
+void ShaderBlur::setTexture(Texture &texture)
+{
+    texture.bindUnit(0);
+}
+void ShaderBlur::setIsVertical(bool isVertical)
+{
+    glProgramUniform1i(this->getShaderHandle(), 1, (int)isVertical);
+}
+
 VertexArray::VertexArray()
 {
 }
@@ -176,21 +267,34 @@ void VertexArray::bufferMesh(par_shapes_mesh *mesh)
 {
     glDeleteVertexArrays(1, &this->VAO);
     glDeleteBuffers(1, &this->VBO);
+    glDeleteBuffers(1, &this->VBO_TEX);
     glDeleteBuffers(1, &this->EBO);
 
     glCreateVertexArrays(1, &this->VAO);
-
     glCreateBuffers(1, &this->VBO);
+    glCreateBuffers(1, &this->VBO_TEX);
     glCreateBuffers(1, &this->EBO);
 
     glNamedBufferStorage(this->VBO, mesh->npoints * 3 * sizeof(float), mesh->points, 0);
-    glNamedBufferStorage(this->EBO, mesh->ntriangles * 3 * sizeof(uint16_t), mesh->triangles, 0);
-
     glVertexArrayVertexBuffer(this->VAO, 0, this->VBO, 0, 3 * sizeof(float));
-    glVertexArrayElementBuffer(this->VAO, this->EBO);
 
     glEnableVertexArrayAttrib(this->VAO, 0);
     glVertexArrayAttribFormat(this->VAO, 0, 3, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribBinding(this->VAO, 0, 0); // Explicitly link Location 0 to Binding 0
+
+    if (mesh->tcoords != nullptr)
+    {
+        glNamedBufferStorage(this->VBO_TEX, mesh->npoints * 2 * sizeof(float), mesh->tcoords, 0);
+
+        glVertexArrayVertexBuffer(this->VAO, 1, this->VBO_TEX, 0, 2 * sizeof(float));
+
+        glEnableVertexArrayAttrib(this->VAO, 1);
+        glVertexArrayAttribFormat(this->VAO, 1, 2, GL_FLOAT, GL_FALSE, 0);
+        glVertexArrayAttribBinding(this->VAO, 1, 1); // Explicitly link Location 1 to Binding 1
+    }
+
+    glNamedBufferStorage(this->EBO, mesh->ntriangles * 3 * sizeof(uint16_t), mesh->triangles, 0);
+    glVertexArrayElementBuffer(this->VAO, this->EBO);
 
     this->indices = mesh->ntriangles * 3;
 }
@@ -237,8 +341,82 @@ void VertexArray::bufferLines(int x, int y, int z)
 void VertexArray::bufferSphere(int detail)
 {
     auto *mesh = par_shapes_create_parametric_sphere(detail, detail);
+
+    // 1. Rotate 90 degrees around X to bring poles from Z-axis to Y-axis (Up)
+    float axis[] = {1.0f, 0.0f, 0.0f};
+    par_shapes_rotate(mesh, PAR_PI / 2.0f, axis);
+
+    // 2. Fix UV mapping: par_shapes provides (U=phi, V=theta)
+    // Standard mapping expects (U=theta/longitude, V=phi/latitude)
+    for (int i = 0; i < mesh->npoints; i++)
+    {
+        float u_old = mesh->tcoords[i * 2];
+        float v_old = mesh->tcoords[i * 2 + 1];
+        mesh->tcoords[i * 2] = v_old;            // U is now around (longitude)
+        mesh->tcoords[i * 2 + 1] = 1.0f - u_old; // V is now up/down (latitude), flip so 1.0 is North Pole
+    }
+
     bufferMesh(mesh);
     par_shapes_free_mesh(mesh);
+}
+
+void VertexArray::bufferQuad()
+{
+    const float positions[] = {
+        1.0f,  1.0f,  0.0f, // 0: Top Right
+        1.0f,  -1.0f, 0.0f, // 1: Bottom Right
+        -1.0f, -1.0f, 0.0f, // 2: Bottom Left
+        -1.0f, 1.0f,  0.0f  // 3: Top Left
+    };
+
+    const float texCoords[] = {
+        1.0f, 1.0f, // 0: Top Right
+        1.0f, 0.0f, // 1: Bottom Right
+        0.0f, 0.0f, // 2: Bottom Left
+        0.0f, 1.0f  // 3: Top Left
+    };
+
+    // Two triangles to form the square (Counter-Clockwise winding)
+    const uint16_t indices[] = {
+        0, 3, 1, // First Triangle (Top Right, Top Left, Bottom Right)
+        1, 3, 2  // Second Triangle (Bottom Right, Top Left, Bottom Left)
+    };
+
+    // 2. Clean up old buffers
+    glDeleteVertexArrays(1, &this->VAO);
+    glDeleteBuffers(1, &this->VBO);
+    glDeleteBuffers(1, &this->VBO_TEX);
+    glDeleteBuffers(1, &this->EBO);
+
+    // 3. Create new buffers
+    glCreateVertexArrays(1, &this->VAO);
+    glCreateBuffers(1, &this->VBO);
+    glCreateBuffers(1, &this->VBO_TEX);
+    glCreateBuffers(1, &this->EBO);
+
+    // --- 4. Position Buffer (Location 0, Binding 0) ---
+    glNamedBufferStorage(this->VBO, sizeof(positions), positions, 0);
+    glVertexArrayVertexBuffer(this->VAO, 0, this->VBO, 0, 3 * sizeof(float));
+
+    glEnableVertexArrayAttrib(this->VAO, 0);
+    glVertexArrayAttribFormat(this->VAO, 0, 3, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribBinding(this->VAO, 0, 0);
+
+    // --- 5. Texture Coordinate Buffer (Location 1, Binding 1) ---
+    glNamedBufferStorage(this->VBO_TEX, sizeof(texCoords), texCoords, 0);
+    glVertexArrayVertexBuffer(this->VAO, 1, this->VBO_TEX, 0, 2 * sizeof(float));
+
+    glEnableVertexArrayAttrib(this->VAO, 1);
+    glVertexArrayAttribFormat(this->VAO, 1, 2, GL_FLOAT, GL_FALSE, 0);
+    glVertexArrayAttribBinding(this->VAO, 1, 1);
+
+    // --- 6. Element Buffer ---
+    glNamedBufferStorage(this->EBO, sizeof(indices), indices, 0);
+    glVertexArrayElementBuffer(this->VAO, this->EBO);
+
+    // 7. Store the index count for glDrawElements
+    // A quad is 2 triangles * 3 vertices = 6 indices
+    this->indices = 6;
 }
 
 void VertexArray::render()

@@ -7,10 +7,29 @@ namespace phys::gl
 class ResourcesGl
 {
   public:
-    static constexpr int gridAmount = 100;
-    gl::Shader mainShader{"assets/shader.vert", "assets/shader.frag"};
+    static constexpr int gridAmount = 200;
+    gl::ShaderMain mainShader{};
+    gl::ShaderBlur shader_blur{};
+
     gl::VertexArray sphere{};
     gl::VertexArray grid{};
+    gl::VertexArray quad{};
+
+    gl::Texture default_tex;
+
+    gl::Texture sun;
+    gl::Texture mercury;
+    gl::Texture venus;
+    gl::Texture mars;
+    gl::Texture saturn;
+    gl::Texture neptune;
+    gl::Texture uranus;
+    gl::Texture jupiter;
+
+    gl::Texture stars;
+    gl::Texture moon;
+    gl::Texture earth_day;
+    gl::Texture earth_clouds;
 
     ResourcesGl();
 };

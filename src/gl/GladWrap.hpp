@@ -12,7 +12,6 @@ class Texture
 {
   public:
     Texture();
-    Texture(vec2u size);
     virtual ~Texture();
 
     Texture(const Texture &) = delete;
@@ -22,26 +21,47 @@ class Texture
 
     void resize(vec2u size);
     void loadFromImage(std::string path);
+    void createColor(Color color);
+    void clear(Color color);
 
-  private:
+    uint32_t getID();
+
+  protected:
     uint32_t texture_id{0};
 };
 
-class TextureRender : public Texture
+class FrameBuffer
 {
   public:
-    TextureRender(vec2u size);
-    ~TextureRender();
+    FrameBuffer() = default;
+    ~FrameBuffer();
 
-    TextureRender(const TextureRender &) = delete;
-    TextureRender &operator=(const TextureRender &) = delete;
+    FrameBuffer(const FrameBuffer &) = delete;
+    FrameBuffer &operator=(const FrameBuffer &) = delete;
 
     void resize(vec2u size);
-    void bindUnit(uint32_t unit);
-    void bindFrame();
+    void activate(uint32_t attachment_1 = 36064, uint32_t attachment_2 = 36065, uint32_t attachment_3 = 36066,
+                  uint32_t attachment_4 = 36067) const;
+
+    // Bind a specific attachment to a texture unit
+    void bindTexture(uint32_t unit) const;
+    void bindFrameBuffer(uint32_t index) const;
+
+    uint32_t fbo_id{0};
+    uint32_t rbo_id{0};
+
+    Texture texture_1;
+    Texture texture_2;
+    Texture texture_3;
+    Texture texture_4;
+
+    inline static const uint32_t Slot_1 = 36064;
+    inline static const uint32_t Slot_2 = 36065;
+    inline static const uint32_t Slot_3 = 36066;
+    inline static const uint32_t Slot_4 = 36067;
 
   private:
-    uint32_t frameBuffer{0};
+    vec2u size{0, 0};
 };
 
 class Shader
@@ -54,8 +74,33 @@ class Shader
     Shader(const Shader &) = delete;
     Shader &operator=(const Shader &) = delete;
 
+    void use() const;
+
   private:
     uint32_t shader_program{0};
+};
+
+class ShaderMain : public Shader
+{
+  public:
+    ShaderMain();
+
+    void setMatrixVP(mat4f view_projection);
+    void setMatrixM(mat4f model);
+    void setColor(Color color);
+    void setColorExt(Color color);
+    void setTexture(Texture &texture);
+    void setTransparency(float transparency);
+    void setBrightness(float brightness);
+};
+
+class ShaderBlur : public Shader
+{
+  public:
+    ShaderBlur();
+
+    void setTexture(Texture &texture);
+    void setIsVertical(bool isVertical);
 };
 
 class VertexArray
@@ -71,12 +116,13 @@ class VertexArray
     void bufferSphere(int detail);
     void bufferLines(const std::vector<vec3f> points);
     void bufferLines(int x, int y, int z);
+    void bufferQuad();
 
     void render();
     void renderLines();
 
   private:
-    uint32_t VAO{0}, VBO{0}, EBO{0};
+    uint32_t VAO{0}, VBO{0}, EBO{0}, VBO_TEX{0};
     uint32_t indices{0};
 };
 
