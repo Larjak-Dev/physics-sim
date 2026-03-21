@@ -9,7 +9,7 @@
 
 #include <SFML/Graphics/Image.hpp>
 
-#include <glad/glad.h>
+#include <glad.h>
 
 #include <fstream>
 #include <ranges>

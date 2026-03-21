@@ -7,7 +7,7 @@
 #include "tools/Debug.hpp"
 #include "tools/Error.hpp"
 #include <cassert>
-#include <glad/glad.h>
+#include <glad.h>
 #include <iostream>
 
 using namespace phys::app;

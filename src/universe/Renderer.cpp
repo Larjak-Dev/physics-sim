@@ -10,7 +10,7 @@
 #include "tools/Units.hpp"
 #include "universe/Environment.hpp"
 #include <cmath>
-#include <glad/glad.h>
+#include <glad.h>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/scalar_constants.hpp>
