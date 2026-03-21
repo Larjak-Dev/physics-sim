@@ -37,4 +37,27 @@ bool EnumCombo(const char *label, T &value, const std::vector<std::pair<T, const
     }
     return changed;
 }
+
+inline void drawTableLabel(const char *label)
+{
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text(label);
+    ImGui::TableNextColumn();
+    ImGui::SetNextItemWidth(-1);
+}
+
+inline void drawTableInputD(const char *label, double *value, ImGuiInputTextFlags flags = 0,
+                            const char *format = "%.2e")
+{
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    ImGui::AlignTextToFramePadding();
+    ImGui::Text(label);
+    ImGui::TableNextColumn();
+    ImGui::SetNextItemWidth(-1);
+    ImGui::InputDouble("##x", value, 0.0, 0.0, format, flags);
+}
+
 } // namespace phys::app

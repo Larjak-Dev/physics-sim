@@ -9,7 +9,9 @@ class ResourcesGl
   public:
     static constexpr int gridAmount = 200;
     gl::ShaderMain mainShader{};
+    gl::ShaderBlur shader_basic{};
     gl::ShaderBlur shader_blur{};
+    gl::ShaderCombine shader_combine{};
 
     gl::VertexArray sphere{};
     gl::VertexArray grid{};

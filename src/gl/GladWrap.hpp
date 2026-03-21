@@ -93,6 +93,13 @@ class ShaderMain : public Shader
     void setTransparency(float transparency);
     void setBrightness(float brightness);
 };
+class ShaderBasic : public Shader
+{
+  public:
+    ShaderBasic();
+
+    void setTexture(Texture &texture);
+};
 
 class ShaderBlur : public Shader
 {
@@ -101,6 +108,14 @@ class ShaderBlur : public Shader
 
     void setTexture(Texture &texture);
     void setIsVertical(bool isVertical);
+};
+class ShaderCombine : public Shader
+{
+  public:
+    ShaderCombine();
+
+    void setTexture1(Texture &texture);
+    void setTexture2(Texture &texture);
 };
 
 class VertexArray

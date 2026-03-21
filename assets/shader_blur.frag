@@ -7,25 +7,30 @@ layout (location = 0) uniform sampler2D ourTexture;
 layout (location = 1) uniform bool isVertical;
 
 float weight[11] = {
-    0.132980, // Center
-    0.125841, // 1st neighbor
-    0.106701, // 2nd
-    0.081129, // 3rd
-    0.055218, // 4th
-    0.033682, // 5th
-    0.018416, // 6th
-    0.009017, // 7th
-    0.003955, // 8th
-    0.001554, // 9th
-    0.000547  // 10th neighbor
+    0.132980,
+    0.125841, 
+    0.106701,
+    0.081129,
+    0.055218,
+    0.033682,
+    0.018416,
+    0.009017,
+    0.003955,
+    0.001554,
+    0.000547  
     };
 
 
 void main() {
   vec2 texture_size = textureSize(ourTexture, 0);
-  vec2 texture_offset = vec2(1.0,1.0)/texture_size;
+float aspect_ratio = texture_size.x / texture_size.y;
 
-  vec2 cord_offset = vec2(texture_offset.x * float(!isVertical), texture_offset.y * float(isVertical));
+  vec2 cord_offset;
+  if(isVertical) {
+    cord_offset = vec2(0.0,1.0/texture_size.y);
+  } else {
+    cord_offset = vec2((1.0/texture_size.x) * aspect_ratio, 0.0);
+  }
   
   vec3 color_sum = vec3(0.0,0.0,0.0);
 
@@ -36,6 +41,5 @@ void main() {
   }
 
   FragColor = vec4(color_sum,1.0);
-  //FragColor = texture(ourTexture, TexCoords);
 }
 

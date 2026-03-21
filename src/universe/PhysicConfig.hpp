@@ -78,6 +78,9 @@ struct StepConfig
     StepType step_type{StepType::Null};
     double delta_time{0.01};
     double total_time{10};
+
+    // Extra
+    double speed{1.0};
 };
 
 /////////
@@ -106,6 +109,7 @@ struct UniverseConfig
 
     // Other
     double total_time{10.0};
+    double speed{1.0};
 };
 
 } // namespace phys

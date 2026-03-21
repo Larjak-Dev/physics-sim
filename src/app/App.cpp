@@ -8,6 +8,7 @@
 #include "tools/Error.hpp"
 #include <cassert>
 #include <glad/glad.h>
+#include <iostream>
 
 using namespace phys::app;
 
@@ -21,7 +22,8 @@ void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum se
                                 const GLchar *message, const void *userParam)
 {
     auto isErrorStr = type == GL_DEBUG_TYPE_ERROR ? "**GL ERROR**" : "";
-    // showMessageF("GL CALLBACK: {}, type = {}, severity = {}, message = {}", isErrorStr, type, severity, message);
+    std::cout << std::format("GL CALLBACK: {}, type = {}, severity = {}, /n message = {}", isErrorStr, type, severity,
+                             message);
 }
 
 void loadGlad()

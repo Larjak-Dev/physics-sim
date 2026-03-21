@@ -30,6 +30,8 @@ struct Property
     Color color{1.0f, 0, 0, 1.0f};
     vec3d size{1.0, 1.0, 1.0};
     gl::Texture *texture{nullptr};
+    float brightness{0.0};
+    std::string name{"Unknown"};
 };
 
 using Properties = std::vector<Property>;

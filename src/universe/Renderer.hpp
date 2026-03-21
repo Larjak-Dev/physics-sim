@@ -5,7 +5,6 @@
 #include "Environment.hpp"
 #include "tools/Units.hpp"
 #include <SFML/Graphics/RenderTarget.hpp>
-#include <memory>
 
 namespace phys
 {
@@ -23,6 +22,9 @@ struct Transform2D
     mat4d vp_inverse;
 
     mat4f p_gl;
+    mat4f v_skybox;
+    mat4f p_skybox;
+    mat4f vp_skybox;
 
     Transform2D();
     void recalculate(const Camera &cam, vec2u res);
@@ -38,6 +40,7 @@ class Renderer
     Transform2D transform2D;
     sf::RenderTarget *target{nullptr};
     gl::FrameBuffer frameBuffer{};
+    gl::FrameBuffer frameBuffer_blur{};
 
     Renderer();
     Renderer(const Renderer &other);
@@ -55,6 +58,8 @@ class Renderer
                 Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
     void renderGrid(double exponant, const Camera &cam, float transarency = 1.0f,
                     Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
+
+    void renderSkyBox(gl::Texture &skybox, const Camera &cam, float transparency = 1.0f);
 
   private:
     void renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &shader,

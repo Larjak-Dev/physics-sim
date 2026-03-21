@@ -20,6 +20,7 @@ struct PlanetID
     std::string name;
     phys::Color color;
     gl::Texture *texture;
+    float brightness{0.0};
 };
 
 PlanetID getPlanetID(PlanetType planetType)
@@ -27,6 +28,7 @@ PlanetID getPlanetID(PlanetType planetType)
     std::string id;
     std::string name;
     phys::Color color;
+    float brightness{0.0};
     gl::Texture *texture{nullptr};
 
     switch (planetType)
@@ -36,6 +38,7 @@ PlanetID getPlanetID(PlanetType planetType)
         name = "Sun";
         color = {1.0f, 1.0f, 0.4f};
         texture = &gl::getResourcesGL()->sun;
+        brightness = 1.0;
         break;
     case PlanetType::Mercury:
 
@@ -146,7 +149,7 @@ PlanetID getPlanetID(PlanetType planetType)
         assert(false && "Unvalid PlanetType");
         break;
     }
-    return PlanetID{id, name, color, texture};
+    return PlanetID{id, name, color, texture, brightness};
 }
 
 PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)
@@ -326,6 +329,8 @@ PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)
     prop.color = planet.color;
     prop.size = {radius, radius, radius};
     prop.texture = planet.texture;
+    prop.brightness = planet.brightness;
+    prop.name = planet.name;
 
     return {body_1, body_2, prop};
 }
@@ -361,12 +366,15 @@ SolarSystemResult PlanetAPI::fetchSolarSystem()
 
     universe_1.env->addBody({sun.body_1, sun.prop});
 
-    universe_1.camera->distance = 1e10;
+    universe_1.camera->distance = 2.30e11;
+    universe_1.camera->is_fixed_body_size = true;
+    universe_1.camera->fixed_size = 0.8;
     universe_1.physicConfig.force_config.force_type = ForceType::Newtonian;
     universe_1.physicConfig.force_config.newtonian_config.G = 6.67430e-11;
 
-    universe_1.physicConfig.step_config.delta_time = 86400;
-    universe_1.physicConfig.step_config.total_time = this->total_days * 86400;
+    universe_1.physicConfig.step_config.delta_time = 86400.0 / 4.0;
+    universe_1.physicConfig.step_config.total_time = this->total_days * 86400.0;
+    universe_1.physicConfig.step_config.speed = 86400.0 * 4.0;
 
     return result;
 }

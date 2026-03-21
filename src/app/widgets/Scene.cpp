@@ -1,9 +1,12 @@
 #include "Scene.hpp"
-#include "SFML/Graphics/RenderTarget.hpp"
+#include "../AppResources.hpp"
 #include "SFML/Graphics/Texture.hpp"
 #include "SFML/System/Vector2.hpp"
+#include "extra.hpp"
+#include "gl/ResourcesGl.hpp"
 #include "imgui-SFML.h"
 #include "imgui.h"
+#include "misc/cpp/imgui_stdlib.h"
 #include "tools/Units.hpp"
 #include "universe/Environment.hpp"
 #include "universe/Universe.hpp"
@@ -34,8 +37,6 @@ void TextureWidget::update()
     }
 }
 
-#include "../../tools/Debug.hpp"
-#include <iostream>
 void updateInputs(ImVec2 cursor, phys::Universe &universe, sf::RenderTexture &texture, unsigned int &selected_body_id,
                   phys::vec3d &mouse_world)
 {
@@ -128,267 +129,314 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         this->texture.clear();
     updateInputs(cursor, universe, texture, this->selected_body_id, this->click_pos_world);
 
+    auto cam = *universe.camera;
+
     // Render Texture widget
     universe.renderer.activate(this->texture);
     universe.renderer.clear(Color::Black);
-    universe.renderer.renderGrid(1, *universe.camera, 1.0f, Color(0.5, 0.5, 0.5, 1.0));
+    if (cam.is_render_stars)
+        universe.renderer.renderSkyBox(gl::getResourcesGL()->stars, *universe.camera, 0.5f);
+    if (cam.is_render_grid)
+        universe.renderer.renderGrid(1, *universe.camera, 1.0f, Color(0.5, 0.5, 0.5, 1.0));
     universe.renderer.render(static_cast<Environment>(*universe.env), *universe.camera);
     universe.renderer.deactivate();
 
     // Extra
+    auto &camera = *universe.camera;
     ImGui::SetCursorPos(cursor);
-    ImGui::BeginChild("Extra", ImVec2(150, 250), ImGuiChildFlags_None);
+    ImGui::BeginChild("Extra", ImVec2(170, 350));
+    float width_c = 160;
 
     ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.2, 0.2, 0.2, 0.5));
     // Viewport
     if (ImGui::CollapsingHeader("Viewport"))
     {
-        ImGui::BeginChild("Viewport", ImVec2(150, 100), ImGuiChildFlags_Borders);
-        ImGui::Text("X:");
-        ImGui::SameLine();
-        ImGui::InputDouble("##x", &universe.camera->center.x, 0.0, 0.0, "%.2e");
-        ImGui::Text("Y:");
-        ImGui::SameLine();
-        ImGui::InputDouble("##y", &universe.camera->center.y, 0.0, 0.0, "%.2e");
-        ImGui::Text("Z:");
-        ImGui::SameLine();
-        ImGui::InputDouble("##z", &universe.camera->center.z, 0.0, 0.0, "%.2e");
-        ImGui::Text("Zoom:");
-        ImGui::SameLine();
-        ImGui::InputDouble("##zoom", &universe.camera->distance, 0.0, 0.0, "%.2e");
+        ImGui::PushFont(phys::getAppResources().font_small);
+        ImGui::BeginChild("Viewport", ImVec2(width_c, 115), ImGuiChildFlags_Borders);
+        ImGui::BeginTable("##ViewTable", 2);
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 30);
+        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
 
-        ImGui::Text("Rendering:");
+        drawTableInputD("X:", &universe.camera->center.x);
+        drawTableInputD("Y:", &universe.camera->center.y);
+        drawTableInputD("Z:", &universe.camera->center.z);
+        drawTableInputD("Zoom:", &universe.camera->distance);
 
-        ImGui::Text("Scaled Size:");
-        ImGui::SameLine();
-        ImGui::Checkbox("##isScale", &universe.camera->is_scaled_body_size);
-        ImGui::InputDouble("##scale_size", &universe.camera->body_scale);
-
-        ImGui::Text("Fixed Size:");
-        ImGui::SameLine();
-        ImGui::Checkbox("##isFixed", &universe.camera->is_fixed_body_size);
-        ImGui::InputDouble("##fixed_size", &universe.camera->fixed_size);
-
+        ImGui::EndTable();
         ImGui::EndChild();
+        ImGui::PopFont();
     }
 
-    auto env = static_cast<Environment>(*universe.env);
-    if (ImGui::CollapsingHeader("Bodies"))
+    if (ImGui::CollapsingHeader("Rendering"))
     {
 
-        ImGui::BeginChild("Bodies", ImVec2(150, 100), ImGuiChildFlags_Borders);
-        for (auto &&[body, prop] : std::views::zip(env.bodies, env.properties))
+        ImGui::PushFont(phys::getAppResources().font_small);
+        ImGui::BeginChild("Rendering", ImVec2(width_c, 100), ImGuiChildFlags_Borders);
+
+        ImGui::BeginTable("##ViewTable", 2);
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 40);
+        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+        drawTableLabel("Scaled:");
+        ImGui::Checkbox("##isScale", &camera.is_scaled_body_size);
+
+        if (camera.is_scaled_body_size)
         {
-            std::string button_text = std::format("Body {}", body.id);
-            if (ImGui::Button(button_text.c_str()))
-            {
-                auto &camera = *universe.camera;
-                camera.center = body.pos;
-                camera.distance = prop.size.x * 3.0;
-            }
+            drawTableLabel("");
+            ImGui::InputDouble("##scale_size", &camera.body_scale);
         }
+
+        drawTableLabel("Fixed Size:");
+        ImGui::Checkbox("##isFixed", &camera.is_fixed_body_size);
+
+        if (camera.is_fixed_body_size)
+        {
+            drawTableLabel("");
+            ImGui::InputDouble("##fixed_size", &camera.fixed_size, 0.1, 0.1, "%.2f");
+        }
+
+        drawTableLabel("Grid:");
+        ImGui::Checkbox("##grid", &camera.is_render_grid);
+
+        drawTableLabel("Stars:");
+        ImGui::Checkbox("##stars", &camera.is_render_stars);
+
+        ImGui::EndTable();
+
         ImGui::EndChild();
+        ImGui::PopFont();
     }
-
-    // Selected body
-    auto pair_selected = universe.env->getBody(this->selected_body_id);
-    auto &body_selected = pair_selected.first;
-    if (body_selected.id != 0 && ImGui::CollapsingHeader("Body"))
-    {
-
-        auto entity_size = ImGui::GetContentRegionAvail();
-        ImGui::BeginChild("Entity", entity_size, ImGuiChildFlags_Borders);
-        ImGui::Text("ID:");
-        ImGui::SameLine();
-        int id = static_cast<int>(body_selected.id);
-        ImGui::InputInt("##id", &id, 0.0, 0.0, ImGuiInputTextFlags_ReadOnly);
-        ImGui::Text("Mass:");
-        ImGui::SameLine();
-        ImGui::InputDouble("##mass", &body_selected.mass, 0.0, 0.0, "%.2e", ImGuiInputTextFlags_ReadOnly);
-        ImGui::Text("X:");
-        ImGui::SameLine();
-        ImGui::InputDouble("##x_body", &body_selected.pos.x, 0.0, 0.0, "%.2e", ImGuiInputTextFlags_ReadOnly);
-        ImGui::Text("Y:");
-        ImGui::SameLine();
-        ImGui::InputDouble("##y_body", &body_selected.pos.y, 0.0, 0.0, "%.2e", ImGuiInputTextFlags_ReadOnly);
-        ImGui::Text("Z:");
-        ImGui::SameLine();
-        ImGui::InputDouble("##z_body", &body_selected.pos.z, 0.0, 0.0, "%.2e", ImGuiInputTextFlags_ReadOnly);
-        ImGui::Text("X_vel:");
-        ImGui::SameLine();
-        ImGui::InputDouble("##x_vel", &body_selected.vel.x, 0.0, 0.0, "%.2e", ImGuiInputTextFlags_ReadOnly);
-        ImGui::Text("Y_vel");
-        ImGui::SameLine();
-        ImGui::InputDouble("##y_vel", &body_selected.vel.y, 0.0, 0.0, "%.2e", ImGuiInputTextFlags_ReadOnly);
-        ImGui::Text("Z_vel");
-        ImGui::SameLine();
-        ImGui::InputDouble("##z_vel", &body_selected.vel.z, 0.0, 0.0, "%.2e", ImGuiInputTextFlags_ReadOnly);
-        ImGui::Text("vel");
-        ImGui::SameLine();
-        double vel = glm::length(body_selected.vel);
-        ImGui::InputDouble("##vel", &vel, 0.0, 0.0, "%.2e", ImGuiInputTextFlags_ReadOnly);
-        ImGui::EndChild();
-    }
-
     ImGui::PopStyleColor();
     ImGui::EndChild();
 
-    // popup
-
-    if (ImGui::BeginPopup("Body"))
+    ImGui::Begin("Bodies");
     {
-        if (ImGui::Button("Edit"))
+        auto env = static_cast<Environment>(*universe.env);
+
+        ImGuiTableFlags flags =
+            ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchProp;
+        if (ImGui::BeginTable("##BodiesTable", 1, flags))
         {
-            this->editing_pair = universe.env->getBody(this->selected_body_id);
-            ImGui::OpenPopup("Edit_Pop");
-        };
+            ImGui::TableSetupColumn("BodyName", ImGuiTableColumnFlags_WidthStretch);
 
-        if (ImGui::Button("Delete"))
-        {
-        }
-
-        if (ImGui::BeginPopupModal("Edit_Pop"))
-        {
-            auto &editing_body = editing_pair.first;
-
-            ImGui::Text("Mass:");
-            ImGui::SameLine();
-            ImGui::InputDouble("##mass", &editing_body.mass, 0.0, 0.0, "%.2e");
-            ImGui::Text("Locked:");
-            ImGui::SameLine();
-            ImGui::Checkbox("##lock", &editing_body.is_locked);
-            ImGui::Text("X:");
-            ImGui::SameLine();
-            ImGui::InputDouble("##x_body", &editing_body.pos.x, 0.0, 0.0, "%.2e");
-            ImGui::Text("Y:");
-            ImGui::SameLine();
-            ImGui::InputDouble("##y_body", &editing_body.pos.y, 0.0, 0.0, "%.2e");
-            ImGui::Text("Z:");
-            ImGui::SameLine();
-            ImGui::InputDouble("##z_body", &editing_body.pos.z, 0.0, 0.0, "%.2e");
-            ImGui::Text("X_vel:");
-            ImGui::SameLine();
-            ImGui::InputDouble("##x_vel", &editing_body.vel.x, 0.0, 0.0, "%.2e");
-            ImGui::Text("Y_vel");
-            ImGui::SameLine();
-            ImGui::InputDouble("##y_vel", &editing_body.vel.y, 0.0, 0.0, "%.2e");
-            ImGui::Text("Z_vel");
-            ImGui::SameLine();
-            ImGui::InputDouble("##z_vel", &editing_body.vel.z, 0.0, 0.0, "%.2e");
-
-            if (ImGui::CollapsingHeader("Property"))
+            for (auto &&[body, prop] : std::views::zip(env.bodies, env.properties))
             {
-                auto &editing_property = editing_pair.second;
+                ImGui::TableNextRow();
+                ImGui::TableNextColumn();
 
-                ImGui::Text("Color");
-                ImGui::SameLine();
-                ImGui::ColorEdit4("##color", reinterpret_cast<float *>(&editing_property.color));
-                ImGui::Text("Size X:");
-                ImGui::SameLine();
-                ImGui::InputDouble("##x_size", &editing_property.size.x, 0.0, 0.0, "%.2e");
-                ImGui::Text("Size Y:");
-                ImGui::SameLine();
-                ImGui::InputDouble("##y_size", &editing_property.size.y, 0.0, 0.0, "%.2e");
-                ImGui::Text("Size Z:");
-                ImGui::SameLine();
-                ImGui::InputDouble("##z_size", &editing_property.size.z, 0.0, 0.0, "%.2e");
+                // Button fills the entire row width
+                std::string button_text = std::format("{} ({})", prop.name, body.id);
+                if (ImGui::Button(button_text.c_str(), ImVec2(-FLT_MIN, 0.0f)))
+                {
+                    camera.center = body.pos;
+                    camera.distance = prop.size.x * 3.0;
+                }
             }
-            if (ImGui::Button("Configure"))
+            ImGui::EndTable();
+        }
+        ImGui::End();
+
+        ImGui::Begin("Selection");
+        {
+            // Selected body
+            auto pair_selected = universe.env->getBody(this->selected_body_id);
+            auto &body_selected = pair_selected.first;
+            auto &body_property = pair_selected.second;
+            if (body_selected.id != 0)
             {
-                universe.env->setBody(selected_body_id, this->editing_pair);
-                ImGui::CloseCurrentPopup();
-            };
-            ImGui::SameLine();
-            if (ImGui::Button("Cancel"))
+
+                if (ImGui::BeginTable("##SelectionTable", 2, ImGuiTableFlags_RowBg))
+                {
+                    ImGui::TableSetupColumn("L", ImGuiTableColumnFlags_WidthFixed, 65.0f);
+                    ImGui::TableSetupColumn("V", ImGuiTableColumnFlags_WidthStretch);
+
+                    auto PropertyRow = [](const char *label, const char *id, double val)
+                    {
+                        ImGui::TableNextRow();
+                        ImGui::TableNextColumn();
+                        ImGui::AlignTextToFramePadding();
+                        ImGui::Text("%s", label);
+                        ImGui::TableNextColumn();
+                        ImGui::SetNextItemWidth(-1);
+                        ImGui::InputDouble(id, &val, 0.0, 0.0, "%.2e", ImGuiInputTextFlags_ReadOnly);
+                    };
+                    drawTableLabel("Name:");
+                    ImGui::InputText("##name", &body_property.name, ImGuiInputTextFlags_ReadOnly);
+
+                    drawTableLabel("ID:");
+                    int id = static_cast<int>(body_selected.id);
+                    ImGui::InputInt("##id", &id, 0.0, 0.0, ImGuiInputTextFlags_ReadOnly);
+
+                    PropertyRow("Mass:", "##mass", body_selected.mass);
+                    PropertyRow("Pos X:", "##px", body_selected.pos.x);
+                    PropertyRow("Pos Y:", "##py", body_selected.pos.y);
+                    PropertyRow("Pos Z:", "##pz", body_selected.pos.z);
+                    PropertyRow("Vel X:", "##vx", body_selected.vel.x);
+                    PropertyRow("Vel Y:", "##vy", body_selected.vel.y);
+                    PropertyRow("Vel Z:", "##vz", body_selected.vel.z);
+
+                    ImGui::EndTable();
+                }
+            }
+        }
+        ImGui::End();
+
+        // popup
+
+        if (ImGui::BeginPopup("Body"))
+        {
+            if (ImGui::Button("Edit"))
             {
-                ImGui::CloseCurrentPopup();
+                this->editing_pair = universe.env->getBody(this->selected_body_id);
+                ImGui::OpenPopup("Edit_Pop");
             };
+
+            if (ImGui::Button("Delete"))
+            {
+            }
+
+            if (ImGui::BeginPopupModal("Edit_Pop"))
+            {
+                auto &editing_body = editing_pair.first;
+
+                ImGui::Text("Mass:");
+                ImGui::SameLine();
+                ImGui::InputDouble("##mass", &editing_body.mass, 0.0, 0.0, "%.2e");
+                ImGui::Text("Locked:");
+                ImGui::SameLine();
+                ImGui::Checkbox("##lock", &editing_body.is_locked);
+                ImGui::Text("X:");
+                ImGui::SameLine();
+                ImGui::InputDouble("##x_body", &editing_body.pos.x, 0.0, 0.0, "%.2e");
+                ImGui::Text("Y:");
+                ImGui::SameLine();
+                ImGui::InputDouble("##y_body", &editing_body.pos.y, 0.0, 0.0, "%.2e");
+                ImGui::Text("Z:");
+                ImGui::SameLine();
+                ImGui::InputDouble("##z_body", &editing_body.pos.z, 0.0, 0.0, "%.2e");
+                ImGui::Text("X_vel:");
+                ImGui::SameLine();
+                ImGui::InputDouble("##x_vel", &editing_body.vel.x, 0.0, 0.0, "%.2e");
+                ImGui::Text("Y_vel");
+                ImGui::SameLine();
+                ImGui::InputDouble("##y_vel", &editing_body.vel.y, 0.0, 0.0, "%.2e");
+                ImGui::Text("Z_vel");
+                ImGui::SameLine();
+                ImGui::InputDouble("##z_vel", &editing_body.vel.z, 0.0, 0.0, "%.2e");
+
+                if (ImGui::CollapsingHeader("Property"))
+                {
+                    auto &editing_property = editing_pair.second;
+
+                    ImGui::Text("Color");
+                    ImGui::SameLine();
+                    ImGui::ColorEdit4("##color", reinterpret_cast<float *>(&editing_property.color));
+                    ImGui::Text("Size X:");
+                    ImGui::SameLine();
+                    ImGui::InputDouble("##x_size", &editing_property.size.x, 0.0, 0.0, "%.2e");
+                    ImGui::Text("Size Y:");
+                    ImGui::SameLine();
+                    ImGui::InputDouble("##y_size", &editing_property.size.y, 0.0, 0.0, "%.2e");
+                    ImGui::Text("Size Z:");
+                    ImGui::SameLine();
+                    ImGui::InputDouble("##z_size", &editing_property.size.z, 0.0, 0.0, "%.2e");
+                }
+                if (ImGui::Button("Configure"))
+                {
+                    universe.env->setBody(selected_body_id, this->editing_pair);
+                    ImGui::CloseCurrentPopup();
+                };
+                ImGui::SameLine();
+                if (ImGui::Button("Cancel"))
+                {
+                    ImGui::CloseCurrentPopup();
+                };
+
+                ImGui::EndPopup();
+            }
 
             ImGui::EndPopup();
         }
 
-        ImGui::EndPopup();
-    }
-
-    if (ImGui::BeginPopup("World"))
-    {
-        if (ImGui::Button("Summon"))
+        if (ImGui::BeginPopup("World"))
         {
-            this->editing_pair = universe.env->getBody(1);
-            this->editing_pair.first.pos = this->click_pos_world;
-            this->editing_pair.first.pos.z = 0.0;
-            ImGui::OpenPopup("Summon");
-        };
-
-        // SUMMON
-        if (ImGui::BeginPopupModal("Summon"))
-        {
-            auto avail = ImGui::GetContentRegionAvail();
-            float height = ImGui::GetFrameHeight();
-
-            auto child_size = ImVec2(avail.x, avail.y - height - 5);
-            ImGui::BeginChild("Inputs", child_size);
-
-            auto &editing_body = editing_pair.first;
-            ImGui::Text("Mass:");
-            ImGui::SameLine();
-            ImGui::InputDouble("##mass", &editing_body.mass, 0.0, 0.0, "%.2e");
-            ImGui::Text("Locked:");
-            ImGui::SameLine();
-            ImGui::Checkbox("##lock", &editing_body.is_locked);
-            ImGui::Text("X:");
-            ImGui::SameLine();
-            ImGui::InputDouble("##x_body", &editing_body.pos.x, 0.0, 0.0, "%.2e");
-            ImGui::Text("Y:");
-            ImGui::SameLine();
-            ImGui::InputDouble("##y_body", &editing_body.pos.y, 0.0, 0.0, "%.2e");
-            ImGui::Text("Z:");
-            ImGui::SameLine();
-            ImGui::InputDouble("##z_body", &editing_body.pos.z, 0.0, 0.0, "%.2e");
-            ImGui::Text("X_vel:");
-            ImGui::SameLine();
-            ImGui::InputDouble("##x_vel", &editing_body.vel.x, 0.0, 0.0, "%.2e");
-            ImGui::Text("Y_vel");
-            ImGui::SameLine();
-            ImGui::InputDouble("##y_vel", &editing_body.vel.y, 0.0, 0.0, "%.2e");
-            ImGui::Text("Z_vel");
-            ImGui::SameLine();
-            ImGui::InputDouble("##z_vel", &editing_body.vel.z, 0.0, 0.0, "%.2e");
-            if (ImGui::CollapsingHeader("Property"))
+            if (ImGui::Button("Summon"))
             {
-                auto &editing_property = editing_pair.second;
+                this->editing_pair = universe.env->getBody(1);
+                this->editing_pair.first.pos = this->click_pos_world;
+                this->editing_pair.first.pos.z = 0.0;
+                ImGui::OpenPopup("Summon");
+            };
 
-                ImGui::Text("Color");
+            // SUMMON
+            if (ImGui::BeginPopupModal("Summon"))
+            {
+                auto avail = ImGui::GetContentRegionAvail();
+                float height = ImGui::GetFrameHeight();
+
+                auto child_size = ImVec2(avail.x, avail.y - height - 5);
+                ImGui::BeginChild("Inputs", child_size);
+
+                auto &editing_body = editing_pair.first;
+                ImGui::Text("Mass:");
                 ImGui::SameLine();
-                ImGui::ColorEdit4("##color", reinterpret_cast<float *>(&editing_property.color));
-                ImGui::Text("Size X:");
+                ImGui::InputDouble("##mass", &editing_body.mass, 0.0, 0.0, "%.2e");
+                ImGui::Text("Locked:");
                 ImGui::SameLine();
-                ImGui::InputDouble("##x_size", &editing_property.size.x, 0.0, 0.0, "%.2e");
-                ImGui::Text("Size Y:");
+                ImGui::Checkbox("##lock", &editing_body.is_locked);
+                ImGui::Text("X:");
                 ImGui::SameLine();
-                ImGui::InputDouble("##y_size", &editing_property.size.y, 0.0, 0.0, "%.2e");
-                ImGui::Text("Size Z:");
+                ImGui::InputDouble("##x_body", &editing_body.pos.x, 0.0, 0.0, "%.2e");
+                ImGui::Text("Y:");
                 ImGui::SameLine();
-                ImGui::InputDouble("##z_size", &editing_property.size.z, 0.0, 0.0, "%.2e");
+                ImGui::InputDouble("##y_body", &editing_body.pos.y, 0.0, 0.0, "%.2e");
+                ImGui::Text("Z:");
+                ImGui::SameLine();
+                ImGui::InputDouble("##z_body", &editing_body.pos.z, 0.0, 0.0, "%.2e");
+                ImGui::Text("X_vel:");
+                ImGui::SameLine();
+                ImGui::InputDouble("##x_vel", &editing_body.vel.x, 0.0, 0.0, "%.2e");
+                ImGui::Text("Y_vel");
+                ImGui::SameLine();
+                ImGui::InputDouble("##y_vel", &editing_body.vel.y, 0.0, 0.0, "%.2e");
+                ImGui::Text("Z_vel");
+                ImGui::SameLine();
+                ImGui::InputDouble("##z_vel", &editing_body.vel.z, 0.0, 0.0, "%.2e");
+                if (ImGui::CollapsingHeader("Property"))
+                {
+                    auto &editing_property = editing_pair.second;
+
+                    ImGui::Text("Color");
+                    ImGui::SameLine();
+                    ImGui::ColorEdit4("##color", reinterpret_cast<float *>(&editing_property.color));
+                    ImGui::Text("Size X:");
+                    ImGui::SameLine();
+                    ImGui::InputDouble("##x_size", &editing_property.size.x, 0.0, 0.0, "%.2e");
+                    ImGui::Text("Size Y:");
+                    ImGui::SameLine();
+                    ImGui::InputDouble("##y_size", &editing_property.size.y, 0.0, 0.0, "%.2e");
+                    ImGui::Text("Size Z:");
+                    ImGui::SameLine();
+                    ImGui::InputDouble("##z_size", &editing_property.size.z, 0.0, 0.0, "%.2e");
+                }
+
+                ImGui::EndChild();
+
+                if (ImGui::Button("Confirm"))
+                {
+                    universe.env->addBody(editing_pair);
+                    ImGui::CloseCurrentPopup();
+                };
+                ImGui::SameLine();
+
+                if (ImGui::Button("Cancel"))
+                {
+                    ImGui::CloseCurrentPopup();
+                };
+                ImGui::EndPopup();
             }
-
-            ImGui::EndChild();
-
-            if (ImGui::Button("Confirm"))
-            {
-                universe.env->addBody(editing_pair);
-                ImGui::CloseCurrentPopup();
-            };
-            ImGui::SameLine();
-
-            if (ImGui::Button("Cancel"))
-            {
-                ImGui::CloseCurrentPopup();
-            };
             ImGui::EndPopup();
         }
-
-        ImGui::EndPopup();
     }
 }
 

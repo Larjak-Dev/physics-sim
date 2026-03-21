@@ -43,6 +43,7 @@ void Simulator::tickRightBar()
     EnumCombo("Step Method", this->universe->physicConfig.step_config.step_type, methods);
 
     ImGui::InputDouble("Delta Time", &this->universe->physicConfig.step_config.delta_time);
+    ImGui::InputDouble("Speed", &this->universe->physicConfig.step_config.speed, 1.0, 1.0);
 
     ImGui::EndDisabled();
 

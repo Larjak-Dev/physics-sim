@@ -53,6 +53,7 @@ FetchContent_Declare(
     GIT_TAG        v1.91.1-docking
 )
 
+
 FetchContent_Declare(
     imgui-sfml
     GIT_REPOSITORY https://github.com/SFML/imgui-sfml.git
@@ -77,6 +78,7 @@ message(STATUS "Fetching glm")
 FetchContent_MakeAvailable(glm)
 #imgui
 message(STATUS "Fetching imgui...")
+set(IMGUI_USE_DARK_THEME ON CACHE BOOL "Use Dark Spectrum Theme" FORCE)
 FetchContent_MakeAvailable(imgui)
 #SFML
 message(STATUS "Fetching SFML...")

@@ -4,8 +4,8 @@
 #include "SFML/System/Vector2.hpp"
 #include "gl/GladWrap.hpp"
 #include "gl/ResourcesGl.hpp"
+#include "glm/gtc/constants.hpp"
 #include "glm/matrix.hpp"
-#include "glm/trigonometric.hpp"
 #include "tools/Debug.hpp"
 #include "tools/Units.hpp"
 #include "universe/Environment.hpp"
@@ -65,6 +65,10 @@ void Transform2D::recalculate(const Camera &cam, vec2u res)
         auto eye = cam.getEye();
         this->v = glm::lookAt(eye, cam.center, vec3d(0.0, 1.0, 0.0));
         changed = true;
+
+        // SkyBox
+        vec3f center_delta = static_cast<vec3f>(cam.center - eye);
+        this->v_skybox = glm::lookAt(vec3f(0.0f, 0.0, 0.0f), center_delta, vec3f(0.0f, 1.0f, 0.0f));
     }
     if (this->res != res || this->camera != cam)
     {
@@ -74,11 +78,16 @@ void Transform2D::recalculate(const Camera &cam, vec2u res)
                              cam.distance + sv.y / 2.0);
         this->p_inverse = glm::inverse(this->p);
         changed = true;
+
+        // SkyBox
+        this->p_skybox =
+            glm::perspective(glm::half_pi<float>(), static_cast<float>(res.x) / static_cast<float>(res.y), 0.01f, 2.0f);
     }
     if (changed)
     {
         this->vp = this->p * this->v;
         this->vp_inverse = glm::inverse(this->vp);
+        this->vp_skybox = this->p_skybox * this->v_skybox;
     }
     this->camera = cam;
     this->res = res;
@@ -143,49 +152,107 @@ void Renderer::render(const Environment &env, const Camera &cam, float transpare
 {
     assert(this->target);
     auto &target = *this->target;
+    auto viewport = target.getSize();
+    glViewport(0, 0, viewport.x, viewport.y);
+    this->frameBuffer.resize(target.getSize());
 
     auto &shader = gl::getResourcesGL()->mainShader;
+    auto &shader_blur = gl::getResourcesGL()->shader_blur;
+    auto &shader_combine = gl::getResourcesGL()->shader_combine;
+
+    // Render bodies
+    this->frameBuffer.activate(gl::FrameBuffer::Slot_1, gl::FrameBuffer::Slot_2, 0, 0);
     shader.setTransparency(transparency);
     shader.setColorExt(color_addon);
-
-    this->frameBuffer.resize(target.getSize());
-    this->frameBuffer.activate(gl::FrameBuffer::Slot_1, gl::FrameBuffer::Slot_2, 0, 0);
     render2D(env, cam, shader);
 
-    /// Blur
+    ////// Blur
+    auto blur_res = viewport / 6u;
+    glViewport(0, 0, blur_res.x, blur_res.y);
+    this->frameBuffer_blur.resize(blur_res);
+
     // Horizontal Blur
-    auto &shader_blur = gl::getResourcesGL()->shader_blur;
-    this->frameBuffer.activate(gl::FrameBuffer::Slot_3, 0, 0, 0);
-    shader_blur.setTexture(this->frameBuffer.texture_1);
+    this->frameBuffer_blur.texture_1.clear(Color::Transparent);
+    this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_1, 0, 0, 0);
+    shader_blur.setTexture(this->frameBuffer.texture_2);
     shader_blur.setIsVertical(false);
     shader_blur.use();
     gl::getResourcesGL()->quad.render();
 
     // Vertical Blur
-    this->frameBuffer.activate(gl::FrameBuffer::Slot_1, 0, 0, 0);
-    shader_blur.setTexture(this->frameBuffer.texture_3);
+    this->frameBuffer_blur.texture_2.clear(Color::Transparent);
+    this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
+    shader_blur.setTexture(this->frameBuffer_blur.texture_1);
+    shader_blur.setIsVertical(false);
+    shader_blur.use();
+    gl::getResourcesGL()->quad.render();
+
+    this->frameBuffer_blur.texture_3.clear(Color::Transparent);
+    this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_3, 0, 0, 0);
+    shader_blur.setTexture(this->frameBuffer_blur.texture_2);
     shader_blur.setIsVertical(true);
     shader_blur.use();
+    gl::getResourcesGL()->quad.render();
+
+    // Combine Blur
+    glViewport(0, 0, viewport.x, viewport.y);
+
+    this->frameBuffer.texture_2.clear(Color::Transparent);
+    this->frameBuffer.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
+    shader_combine.setTexture1(this->frameBuffer.texture_1);
+    shader_combine.setTexture2(this->frameBuffer_blur.texture_3);
+    shader_combine.use();
     gl::getResourcesGL()->quad.render();
 
     this->target->setActive(true);
     shader.setMatrixM(mat4f(1.0f));
     shader.setColor(Color(0.0f, 0.0f, 0.0f, 0.0f));
+    shader.setTexture(this->frameBuffer.texture_2);
     shader.use();
-    this->frameBuffer.texture_1.bindUnit(0);
     gl::getResourcesGL()->quad.render();
+}
+
+void Renderer::renderSkyBox(gl::Texture &skybox, const Camera &cam, float transparency)
+{
+    assert(this->target);
+    auto &target = *this->target;
+    auto viewport = target.getSize();
+    glViewport(0, 0, viewport.x, viewport.y);
+    this->frameBuffer.resize(target.getSize());
+    this->transform2D.recalculate(cam, viewport);
+
+    auto &shader = gl::getResourcesGL()->mainShader;
+
+    this->frameBuffer.activate(gl::FrameBuffer::Slot_1, gl::FrameBuffer::Slot_2, 0, 0);
+    shader.setBrightness(0.2f);
+    shader.setColor(Color::Transparent);
+    shader.setTransparency(transparency);
+    shader.setColorExt(Color::Transparent);
+    shader.setMatrixM(mat4f(1.0f));
+    shader.setMatrixVP(this->transform2D.vp_skybox);
+    shader.setTexture(skybox);
+    shader.use();
+    gl::getResourcesGL()->sphere.render();
 }
 
 void Renderer::renderGrid(double scale, const Camera &cam, float transparency, Color color)
 {
+    assert(this->target);
+    auto &target = *this->target;
+    auto viewport = target.getSize();
+    glViewport(0, 0, viewport.x, viewport.y);
+    this->frameBuffer.resize(target.getSize());
+
     auto &shader = gl::getResourcesGL()->mainShader;
     double exponant_1 = std::floor(std::log10(cam.distance * 0.6));
     double exponant_2 = std::floor(std::log10(cam.distance) + 1);
-    phys::showDebugF("Exponent: {}", exponant_1);
-    this->frameBuffer.resize(target->getSize());
+
     this->frameBuffer.activate(gl::FrameBuffer::Slot_1, gl::FrameBuffer::Slot_2, 0, 0);
     this->renderGrid2D(exponant_1, cam, shader, Color(0.5f, 0.5f, 0.5f), transparency);
     this->renderGrid2D(exponant_2, cam, shader, Color(1.0f, 1.0f, 1.0f), transparency);
+
+    // Debug
+    phys::showDebugF("Exponent: {}", exponant_1);
 }
 
 mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const mat4d &vp_world)
@@ -208,17 +275,6 @@ void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &
     assert(this->target);
     auto &target = *this->target;
 
-    auto viewport = target.getSize();
-    glViewport(0, 0, viewport.x, viewport.y);
-    shader.use();
-
-    mat4f vp_gl = mat4f(1.0f);
-    shader.setMatrixVP(vp_gl);
-
-    shader.setColor(color);
-    shader.setColorExt(color);
-    shader.setTransparency(transparency);
-
     this->transform2D.recalculate(cam, target.getSize());
     auto vp_world = this->transform2D.vp;
 
@@ -230,9 +286,15 @@ void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &
     const auto center_world = vec4d(glm::round(cam.center / scale) * scale, 1.0f);
     const auto size_world = vec4d{scale * amountGrid / 2.0, scale * amountGrid / 2.0, scale * amountGrid / 2.0, 0.0};
 
-    auto model = getModelTransform(center_world, size_world, vp_world);
+    const auto model = getModelTransform(center_world, size_world, vp_world);
     shader.setMatrixM(model);
+    shader.setMatrixVP(mat4f(1.0f));
+    shader.setColor(color);
+    shader.setColorExt(color);
+    shader.setTransparency(transparency);
+    shader.setBrightness(0.0f);
 
+    shader.use();
     vertexArrayGrid.renderLines();
 }
 
@@ -243,36 +305,34 @@ void Renderer::render2D(const Environment &env, const Camera &cam, gl::ShaderMai
     assert(this->target);
     auto &target = *this->target;
 
-    auto viewport = target.getSize();
-    glViewport(0, 0, viewport.x, viewport.y);
-
-    shader.use();
-
-    mat4f vp_gl = mat4f(1.0f);
-    shader.setMatrixVP(vp_gl);
-
     // Pre calculate view project
     this->transform2D.recalculate(cam, target.getSize());
     auto vp_world = this->transform2D.vp;
+
+    mat4f vp_gl = mat4f(1.0f);
+    shader.setMatrixVP(vp_gl);
+    shader.use();
 
     // Render Bodies
     auto &vertexArray = gl::getResourcesGL()->sphere;
     for (auto [index, body] : std::views::enumerate(env.bodies))
     {
+        auto &property = env.properties[index];
         // Model Configuring
         auto pos_world = vec4d(body.pos, 1.0f);
-        auto size_world = vec4d(env.properties[index].size, 0.0f);
+        auto size_world = vec4d(property.size, 0.0f);
         if (cam.is_fixed_body_size)
         {
             size_world = vec4d(1.0, 1.0, 1.0, 0.0) * cam.distance * cam.fixed_size / 12.0;
         }
         else if (cam.is_scaled_body_size)
         {
-            size_world = vec4d(env.properties[index].size, 0.0f) * cam.body_scale;
+            size_world = vec4d(property.size, 0.0f) * cam.body_scale;
         }
 
         auto model = getModelTransform(pos_world, size_world, vp_world);
         shader.setMatrixM(model);
+        shader.setBrightness(property.brightness);
 
         // Color + Texture
         auto color = env.properties[index].color;

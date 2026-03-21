@@ -74,6 +74,8 @@ void Texture::createColor(Color color)
 
 void Texture::clear(Color color)
 {
+    if (!this->texture_id)
+        return;
     float clearColor[4] = {color.r, color.g, color.b, color.a};
     glClearTexImage(this->texture_id, 0, GL_RGBA, GL_FLOAT, &clearColor);
 }
@@ -203,6 +205,16 @@ void Shader::use() const
     glUseProgram(this->shader_program);
 }
 
+ShaderBasic::ShaderBasic() : Shader("assets/shader_basic.vert", "assets/shader_basic.frag")
+{
+    glProgramUniform1i(this->getShaderHandle(), 0, 0);
+}
+
+void ShaderBasic::setTexture(Texture &texture)
+{
+    texture.bindUnit(0);
+}
+
 ShaderMain::ShaderMain() : Shader("assets/shader.vert", "assets/shader.frag")
 {
     GLint loc = glGetUniformLocation(this->getShaderHandle(), "ourTexture");
@@ -240,7 +252,7 @@ void ShaderMain::setBrightness(float brightness)
     glProgramUniform1f(this->getShaderHandle(), 11, brightness);
 }
 
-ShaderBlur::ShaderBlur() : Shader("assets/shader_blur.vert", "assets/shader_blur.frag")
+ShaderBlur::ShaderBlur() : Shader("assets/shader_basic.vert", "assets/shader_blur.frag")
 {
     glProgramUniform1i(this->getShaderHandle(), 0, 0);
 }
@@ -252,6 +264,21 @@ void ShaderBlur::setTexture(Texture &texture)
 void ShaderBlur::setIsVertical(bool isVertical)
 {
     glProgramUniform1i(this->getShaderHandle(), 1, (int)isVertical);
+}
+
+ShaderCombine::ShaderCombine() : Shader("assets/shader_basic.vert", "assets/shader_combine.frag")
+{
+    glProgramUniform1i(this->getShaderHandle(), 0, 0);
+    glProgramUniform1i(this->getShaderHandle(), 1, 1);
+}
+
+void ShaderCombine::setTexture1(Texture &texture)
+{
+    texture.bindUnit(0);
+}
+void ShaderCombine::setTexture2(Texture &texture)
+{
+    texture.bindUnit(1);
 }
 
 VertexArray::VertexArray()

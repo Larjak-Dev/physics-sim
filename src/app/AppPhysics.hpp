@@ -1,6 +1,7 @@
 
 #pragma once
 #include "App.hpp"
+#include "AppResources.hpp"
 #include "slides/Editor.hpp"
 #include "slides/Player.hpp"
 #include "slides/Simulator.hpp"
@@ -21,6 +22,7 @@ class PhysicApp : public App
     PhysicApp(sf::ContextSettings settings);
 
   protected:
+    AppResources resources;
     void init() override;
     void tick() override;
 

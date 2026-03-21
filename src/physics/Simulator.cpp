@@ -91,6 +91,11 @@ void Simulator::startSim(std::shared_ptr<Universe> universe)
         phys::showMessage("Unvalid delta time!");
         return;
     }
+    if (universe->physicConfig.step_config.delta_time / universe->physicConfig.step_config.speed > 5.0)
+    {
+        phys::showMessage("Too long time steps! Increase Speed!");
+        return;
+    }
 
     auto env = static_cast<Environment>(*universe->env);
     phys::prepareEnvironment(env, env.config, universe->physicConfig.step_config.delta_time);
@@ -109,6 +114,7 @@ void Simulator::startSim(std::shared_ptr<Universe> universe)
 
             const auto physic_functions = PhysicFunctions(universe->physicConfig);
             const double delta_time = universe->physicConfig.step_config.delta_time;
+            const double speed = universe->physicConfig.step_config.speed;
             StepBuffer step_buffer;
 
             while (!this->stop_sim)
@@ -122,7 +128,7 @@ void Simulator::startSim(std::shared_ptr<Universe> universe)
                 const auto env_new = physic_functions.step(env_copy, delta_time, step_buffer);
                 universe->env->setEnvironment_safe(env_new);
 
-                std::this_thread::sleep_for(std::chrono::duration<double>(delta_time));
+                std::this_thread::sleep_for(std::chrono::duration<double>(delta_time / speed));
             }
 
             this->stop_sim = false;

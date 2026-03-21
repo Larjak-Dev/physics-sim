@@ -12,12 +12,14 @@ struct Camera
     double x_angle{0.0};
 
     bool is_fixed_body_size{false};
-    double fixed_size{0.2};
+    double fixed_size{1.2};
 
     bool is_scaled_body_size{false};
     double body_scale{1.0};
 
     bool is_render_textures{true};
+    bool is_render_stars{false};
+    bool is_render_grid{true};
 
     Camera() = default;
     inline Camera(double distance) : distance(distance)
