@@ -11,6 +11,7 @@ layout (location = 1) out vec4 BrightColor;
 
 void main()
 {
-      FragColor = texture(ourTexture, texCord) * (1.0 - vertexColor.a) + vertexColor * vertexColor.a;
-      BrightColor = FragColor * brightness;
+    vec4 color = texture(ourTexture, texCord) * (1.0 - vertexColor.a) + vertexColor * vertexColor.a;
+    FragColor = vec4(color.rgb * (1.0+min(brightness, 0.0)), color.a);
+    BrightColor = FragColor * max(brightness,0.0);
 }

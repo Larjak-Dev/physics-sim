@@ -92,6 +92,9 @@ class ShaderMain : public Shader
     void setTexture(Texture &texture);
     void setTransparency(float transparency);
     void setBrightness(float brightness);
+    void setBodyPosition(vec3f pos);
+    void setSunPosition(vec3f pos);
+    void setFancy(bool isFancy);
 };
 class ShaderBasic : public Shader
 {

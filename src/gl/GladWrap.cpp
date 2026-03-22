@@ -252,6 +252,20 @@ void ShaderMain::setBrightness(float brightness)
     glProgramUniform1f(this->getShaderHandle(), 11, brightness);
 }
 
+void ShaderMain::setBodyPosition(vec3f pos)
+{
+    glProgramUniform3f(this->getShaderHandle(), 12, pos.x, pos.y, pos.z);
+}
+
+void ShaderMain::setSunPosition(vec3f pos)
+{
+    glProgramUniform3f(this->getShaderHandle(), 13, pos.x, pos.y, pos.z);
+}
+void ShaderMain::setFancy(bool isFancy)
+{
+    glProgramUniform1i(this->getShaderHandle(), 14, isFancy);
+}
+
 ShaderBlur::ShaderBlur() : Shader("assets/shader_basic.vert", "assets/shader_blur.frag")
 {
     glProgramUniform1i(this->getShaderHandle(), 0, 0);
@@ -320,6 +334,18 @@ void VertexArray::bufferMesh(par_shapes_mesh *mesh)
         glVertexArrayAttribBinding(this->VAO, 1, 1); // Explicitly link Location 1 to Binding 1
     }
 
+    if (mesh->normals != nullptr)
+    {
+
+        glNamedBufferStorage(this->VBO_TEX, mesh->npoints * 3 * sizeof(float), mesh->normals, 0);
+
+        glVertexArrayVertexBuffer(this->VAO, 2, this->VBO_TEX, 0, 3 * sizeof(float));
+
+        glEnableVertexArrayAttrib(this->VAO, 2);
+        glVertexArrayAttribFormat(this->VAO, 2, 3, GL_FLOAT, GL_FALSE, 0);
+        glVertexArrayAttribBinding(this->VAO, 2, 2); // Explicitly link Location 1 to Binding 1
+    }
+
     glNamedBufferStorage(this->EBO, mesh->ntriangles * 3 * sizeof(uint16_t), mesh->triangles, 0);
     glVertexArrayElementBuffer(this->VAO, this->EBO);
 
@@ -370,18 +396,18 @@ void VertexArray::bufferSphere(int detail)
     auto *mesh = par_shapes_create_parametric_sphere(detail, detail);
 
     // 1. Rotate 90 degrees around X to bring poles from Z-axis to Y-axis (Up)
-    float axis[] = {1.0f, 0.0f, 0.0f};
-    par_shapes_rotate(mesh, PAR_PI / 2.0f, axis);
+    // float axis[] = {1.0f, 0.0f, 0.0f};
+    // par_shapes_rotate(mesh, PAR_PI / 2.0f, axis);
 
     // 2. Fix UV mapping: par_shapes provides (U=phi, V=theta)
     // Standard mapping expects (U=theta/longitude, V=phi/latitude)
-    for (int i = 0; i < mesh->npoints; i++)
-    {
-        float u_old = mesh->tcoords[i * 2];
-        float v_old = mesh->tcoords[i * 2 + 1];
-        mesh->tcoords[i * 2] = v_old;            // U is now around (longitude)
-        mesh->tcoords[i * 2 + 1] = 1.0f - u_old; // V is now up/down (latitude), flip so 1.0 is North Pole
-    }
+    // for (int i = 0; i < mesh->npoints; i++)
+    //{
+    //    float u_old = mesh->tcoords[i * 2];
+    //    float v_old = mesh->tcoords[i * 2 + 1];
+    //    mesh->tcoords[i * 2] = v_old;            // U is now around (longitude)
+    //   mesh->tcoords[i * 2 + 1] = 1.0f - u_old; // V is now up/down (latitude), flip so 1.0 is North Pole
+    //}
 
     bufferMesh(mesh);
     par_shapes_free_mesh(mesh);

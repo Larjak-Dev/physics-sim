@@ -4,6 +4,7 @@
 #include "SFML/System/Vector2.hpp"
 #include "extra.hpp"
 #include "gl/ResourcesGl.hpp"
+#include "glm/gtc/constants.hpp"
 #include "imgui-SFML.h"
 #include "imgui.h"
 #include "misc/cpp/imgui_stdlib.h"
@@ -59,6 +60,21 @@ void updateInputs(ImVec2 cursor, phys::Universe &universe, sf::RenderTexture &te
             auto delta_cam = delta_crossX + delta_crossY;
 
             universe.camera->center += delta_cam;
+        }
+        if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle))
+        {
+            auto mouse_delta = ImGui::GetIO().MouseDelta;
+            auto delta = vec2f(mouse_delta.x, mouse_delta.y);
+
+            auto delta_scene = 2.0 * vec2d(delta) / vec2d(vec2u(texture.getSize()));
+            auto delta_world = universe.renderer.transform2D.p_inverse * vec4d(delta_scene.x, delta_scene.y, 0.0, 1.0);
+
+            auto delta_crossX = universe.camera->getCrossX() * -delta_world.x;
+            auto delta_crossY = universe.camera->getCrossY() * delta_world.y;
+            auto delta_cam = delta_crossX + delta_crossY;
+
+            universe.camera->z_angle += glm::quarter_pi<float>() * mouse_delta.x / 200.0f;
+            universe.camera->x_angle += glm::quarter_pi<float>() * mouse_delta.y / 200.0f;
         }
     }
 
@@ -134,9 +150,9 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
     // Render Texture widget
     universe.renderer.activate(this->texture);
     universe.renderer.clear(Color::Black);
-    if (cam.is_render_stars)
+    if (cam.settings.is_render_stars)
         universe.renderer.renderSkyBox(gl::getResourcesGL()->stars, *universe.camera, 0.5f);
-    if (cam.is_render_grid)
+    if (cam.settings.is_render_grid)
         universe.renderer.renderGrid(1, *universe.camera, 1.0f, Color(0.5, 0.5, 0.5, 1.0));
     universe.renderer.render(static_cast<Environment>(*universe.env), *universe.camera);
     universe.renderer.deactivate();
@@ -161,6 +177,10 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         drawTableInputD("Y:", &universe.camera->center.y);
         drawTableInputD("Z:", &universe.camera->center.z);
         drawTableInputD("Zoom:", &universe.camera->distance);
+        drawTableLabel("Rotatio_X");
+        ImGui::InputDouble("##rotX", &universe.camera->x_angle);
+        drawTableLabel("Rotatio_Z");
+        ImGui::InputDouble("##rotZ", &universe.camera->z_angle);
 
         ImGui::EndTable();
         ImGui::EndChild();
@@ -178,28 +198,34 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
 
         drawTableLabel("Scaled:");
-        ImGui::Checkbox("##isScale", &camera.is_scaled_body_size);
+        ImGui::Checkbox("##isScale", &camera.settings.is_scaled_body_size);
 
-        if (camera.is_scaled_body_size)
+        if (camera.settings.is_scaled_body_size)
         {
             drawTableLabel("");
-            ImGui::InputDouble("##scale_size", &camera.body_scale);
+            ImGui::InputDouble("##scale_size", &camera.settings.body_scale);
         }
 
         drawTableLabel("Fixed Size:");
-        ImGui::Checkbox("##isFixed", &camera.is_fixed_body_size);
+        ImGui::Checkbox("##isFixed", &camera.settings.is_fixed_body_size);
 
-        if (camera.is_fixed_body_size)
+        if (camera.settings.is_fixed_body_size)
         {
             drawTableLabel("");
-            ImGui::InputDouble("##fixed_size", &camera.fixed_size, 0.1, 0.1, "%.2f");
+            ImGui::InputDouble("##fixed_size", &camera.settings.fixed_size, 0.1, 0.1, "%.2f");
         }
 
         drawTableLabel("Grid:");
-        ImGui::Checkbox("##grid", &camera.is_render_grid);
+        ImGui::Checkbox("##grid", &camera.settings.is_render_grid);
 
         drawTableLabel("Stars:");
-        ImGui::Checkbox("##stars", &camera.is_render_stars);
+        ImGui::Checkbox("##stars", &camera.settings.is_render_stars);
+
+        drawTableLabel("Fancy:");
+        ImGui::Checkbox("##fancy", &camera.settings.is_render_fancy);
+
+        drawTableLabel("Perspective:");
+        ImGui::Checkbox("##perspective", &camera.settings.is_render_perspective);
 
         ImGui::EndTable();
 

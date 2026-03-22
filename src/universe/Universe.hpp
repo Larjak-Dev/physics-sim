@@ -15,7 +15,6 @@ class Universe
     std::shared_ptr<Camera> camera;
     std::shared_ptr<EnvironmentActive> env;
     Renderer renderer;
-
     PhysicConfig physicConfig;
 
     Universe();

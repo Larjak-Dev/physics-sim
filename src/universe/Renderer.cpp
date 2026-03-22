@@ -117,13 +117,13 @@ unsigned int Renderer::cordOnTargetToBodyInWorld(vec2f cord_on_target, const Cam
     for (auto &&[body, property] : std::views::zip(env.bodies, env.properties))
     {
         double radius = property.size.x;
-        if (cam.is_fixed_body_size)
+        if (cam.settings.is_fixed_body_size)
         {
-            radius = 1 * cam.distance * cam.fixed_size / 12.0;
+            radius = 1 * cam.distance * cam.settings.fixed_size / 12.0;
         }
-        else if (cam.is_scaled_body_size)
+        else if (cam.settings.is_scaled_body_size)
         {
-            radius = property.size.x * cam.body_scale;
+            radius = property.size.x * cam.settings.body_scale;
         }
         double distance = 0.0f;
         if (glm::intersectRaySphere(ray_start, ray_delta_norm, body.pos, radius * radius, distance) &&
@@ -293,6 +293,7 @@ void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &
     shader.setColorExt(color);
     shader.setTransparency(transparency);
     shader.setBrightness(0.0f);
+    shader.setFancy(false);
 
     shader.use();
     vertexArrayGrid.renderLines();
@@ -301,15 +302,41 @@ void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &
 void Renderer::render2D(const Environment &env, const Camera &cam, gl::ShaderMain &shader)
 {
     assert(env.properties.size() >= env.bodies.size());
-
     assert(this->target);
     auto &target = *this->target;
 
-    // Pre calculate view project
+    // Pre calculate View Perspective for double calculations
     this->transform2D.recalculate(cam, target.getSize());
     auto vp_world = this->transform2D.vp;
 
+    // Fancy shadow rendering
+    if (cam.settings.is_render_fancy)
+    {
+        auto bodies_zip = std::views::zip(env.bodies, env.properties);
+        auto &&body_pair = std::ranges::find_if(bodies_zip,
+                                                [](auto &&zipped)
+                                                {
+                                                    auto &&[body, prop] = zipped;
+                                                    if (prop.name == "Sun")
+                                                        return true;
+                                                    return false;
+                                                });
+        if (body_pair != bodies_zip.end())
+        {
+            auto &&[body, prop] = *body_pair;
+            auto sun_pos = vp_world * vec4d(body.pos, 1.0);
+            shader.setSunPosition(vec3f(sun_pos));
+        }
+    }
+    shader.setFancy(cam.settings.is_render_fancy);
+
+    // View Perspective for float calculation in shader
     mat4f vp_gl = mat4f(1.0f);
+    if (cam.settings.is_render_perspective)
+    {
+        auto size = target.getSize();
+        // vp_gl = glm::perspective(45.0f, static_cast<float>(size.x) / static_cast<float>(size.y), 0.1f, 2000.0f);
+    }
     shader.setMatrixVP(vp_gl);
     shader.use();
 
@@ -321,13 +348,13 @@ void Renderer::render2D(const Environment &env, const Camera &cam, gl::ShaderMai
         // Model Configuring
         auto pos_world = vec4d(body.pos, 1.0f);
         auto size_world = vec4d(property.size, 0.0f);
-        if (cam.is_fixed_body_size)
+        if (cam.settings.is_fixed_body_size)
         {
-            size_world = vec4d(1.0, 1.0, 1.0, 0.0) * cam.distance * cam.fixed_size / 12.0;
+            size_world = vec4d(1.0, 1.0, 1.0, 0.0) * cam.distance * cam.settings.fixed_size / 12.0;
         }
-        else if (cam.is_scaled_body_size)
+        else if (cam.settings.is_scaled_body_size)
         {
-            size_world = vec4d(property.size, 0.0f) * cam.body_scale;
+            size_world = vec4d(property.size, 0.0f) * cam.settings.body_scale;
         }
 
         auto model = getModelTransform(pos_world, size_world, vp_world);
@@ -336,7 +363,7 @@ void Renderer::render2D(const Environment &env, const Camera &cam, gl::ShaderMai
 
         // Color + Texture
         auto color = env.properties[index].color;
-        if (env.properties[index].texture && cam.is_render_textures)
+        if (env.properties[index].texture && cam.settings.is_render_textures)
         {
             env.properties[index].texture->bindUnit(0);
             shader.setColor({0, 0, 0, 0});

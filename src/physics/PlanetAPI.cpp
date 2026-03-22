@@ -367,8 +367,8 @@ SolarSystemResult PlanetAPI::fetchSolarSystem()
     universe_1.env->addBody({sun.body_1, sun.prop});
 
     universe_1.camera->distance = 2.30e11;
-    universe_1.camera->is_fixed_body_size = true;
-    universe_1.camera->fixed_size = 0.8;
+    universe_1.camera->settings.is_fixed_body_size = true;
+    universe_1.camera->settings.fixed_size = 0.8;
     universe_1.physicConfig.force_config.force_type = ForceType::Newtonian;
     universe_1.physicConfig.force_config.newtonian_config.G = 6.67430e-11;
 

@@ -4,13 +4,8 @@
 namespace phys
 {
 
-struct Camera
+struct CameraSettings
 {
-    vec3d center{};
-    double distance{0.0};
-    double z_angle{0.0};
-    double x_angle{0.0};
-
     bool is_fixed_body_size{false};
     double fixed_size{1.2};
 
@@ -20,12 +15,30 @@ struct Camera
     bool is_render_textures{true};
     bool is_render_stars{false};
     bool is_render_grid{true};
+    bool is_render_fancy{false};
+    bool is_render_perspective{false};
+
+    float fov{90};
+};
+
+struct Camera
+{
+    vec3d center{};
+    double distance{0.0};
+    double z_angle{0.0};
+    double x_angle{0.0};
+
+    CameraSettings settings;
 
     Camera() = default;
     inline Camera(double distance) : distance(distance)
     {
     }
-    inline bool operator==(const Camera &other) const = default;
+    inline bool operator==(const Camera &other) const
+    {
+        return center == other.center && distance == other.distance && z_angle == other.z_angle &&
+               x_angle == other.x_angle;
+    }
     mat4d getRotationMatrix() const;
     vec3d getEye() const;
 
