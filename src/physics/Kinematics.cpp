@@ -87,6 +87,7 @@ Universe phys::createUniverse(const UniverseConfig config)
 
         camera.center = {0.0, 100.0, 0.0};
         camera.distance = 8;
+        universe.physicConfig.step_config.speed = 1;
     }
     break;
     case phys::ForceType::Newtonian:
@@ -129,13 +130,13 @@ Universe phys::createUniverse(const UniverseConfig config)
         camera.distance = distance * 1.3;
 
         universe.physicConfig.step_config.total_time = 10.0;
+        universe.physicConfig.step_config.speed = 1000;
     }
     break;
     default:
         assert(false && "Null?");
     }
     universe.physicConfig.step_config.total_time = config.total_time;
-    universe.physicConfig.step_config.speed = 1000;
 
     universe.env = std::make_shared<EnvironmentActive>(env);
     universe.camera = std::make_shared<Camera>(camera);
