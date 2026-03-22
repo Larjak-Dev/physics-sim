@@ -53,10 +53,10 @@ void updateInputs(ImVec2 cursor, phys::Universe &universe, sf::RenderTexture &te
             auto delta = vec2f(mouse_delta.x, mouse_delta.y);
 
             auto delta_scene = 2.0 * vec2d(delta) / vec2d(vec2u(texture.getSize()));
-            auto delta_world = universe.renderer.transform2D.p_inverse * vec4d(delta_scene.x, delta_scene.y, 0.0, 1.0);
+            auto delta_world = universe.renderer.transform2D.p_inverse * vec4f(delta_scene.x, delta_scene.y, 0.0, 1.0);
 
-            auto delta_crossX = universe.camera->getCrossX() * -delta_world.x;
-            auto delta_crossY = universe.camera->getCrossY() * delta_world.y;
+            auto delta_crossX = vec3f(universe.camera->getCrossX()) * -delta_world.x;
+            auto delta_crossY = vec3f(universe.camera->getCrossY()) * delta_world.y;
             auto delta_cam = delta_crossX + delta_crossY;
 
             universe.camera->center += delta_cam;
@@ -64,17 +64,15 @@ void updateInputs(ImVec2 cursor, phys::Universe &universe, sf::RenderTexture &te
         if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle))
         {
             auto mouse_delta = ImGui::GetIO().MouseDelta;
-            auto delta = vec2f(mouse_delta.x, mouse_delta.y);
 
-            auto delta_scene = 2.0 * vec2d(delta) / vec2d(vec2u(texture.getSize()));
-            auto delta_world = universe.renderer.transform2D.p_inverse * vec4d(delta_scene.x, delta_scene.y, 0.0, 1.0);
+            universe.camera->z_angle -= glm::quarter_pi<double>() * mouse_delta.x / 200.0;
+            universe.camera->x_angle -= glm::quarter_pi<double>() * mouse_delta.y / 200.0;
 
-            auto delta_crossX = universe.camera->getCrossX() * -delta_world.x;
-            auto delta_crossY = universe.camera->getCrossY() * delta_world.y;
-            auto delta_cam = delta_crossX + delta_crossY;
-
-            universe.camera->z_angle += glm::quarter_pi<float>() * mouse_delta.x / 200.0f;
-            universe.camera->x_angle += glm::quarter_pi<float>() * mouse_delta.y / 200.0f;
+            // Clamp pitch to prevent going upside down
+            if (universe.camera->x_angle < 0.0)
+                universe.camera->x_angle = 0.0;
+            if (universe.camera->x_angle > glm::half_pi<double>() - 0.01)
+                universe.camera->x_angle = glm::half_pi<double>() - 0.01;
         }
     }
 

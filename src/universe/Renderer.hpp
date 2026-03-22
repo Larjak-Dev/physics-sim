@@ -13,21 +13,24 @@ struct Transform2D
 {
     Camera camera{};
     vec2u res{};
+    vec3d delta_transform;
 
-    mat4d v;
-    mat4d p;
-    mat4d vp;
+    mat4f v;
+    mat4f v_inverse;
+    mat4f p;
+    mat4f p_inverse;
+    mat4f vp;
+    mat4f vp_inverse;
 
-    mat4d p_inverse;
-    mat4d vp_inverse;
-
-    mat4f p_gl;
     mat4f v_skybox;
     mat4f p_skybox;
     mat4f vp_skybox;
 
     Transform2D();
     void recalculate(const Camera &cam, vec2u res);
+
+    vec3f apply(vec3d v);
+    vec3d inverse(vec3f v);
 };
 
 ////////////

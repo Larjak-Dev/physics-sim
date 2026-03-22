@@ -39,6 +39,16 @@ void Texture::resize(vec2u size)
     glTextureParameteri(this->texture_id, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
     glTextureParameteri(this->texture_id, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
 }
+
+void Texture::setFilter(uint32_t min_filter, uint32_t mag_filter)
+{
+    if (this->texture_id)
+    {
+        glTextureParameteri(this->texture_id, GL_TEXTURE_MIN_FILTER, min_filter);
+        glTextureParameteri(this->texture_id, GL_TEXTURE_MAG_FILTER, mag_filter);
+    }
+}
+
 void Texture::bindUnit(GLuint unit) const
 {
     assert(glIsTexture(this->texture_id));
@@ -102,6 +112,11 @@ void FrameBuffer::resize(vec2u size)
     this->texture_2.resize(size);
     this->texture_3.resize(size);
     this->texture_4.resize(size);
+
+    this->texture_1.setFilter(GL_NEAREST, GL_NEAREST);
+    this->texture_2.setFilter(GL_NEAREST, GL_NEAREST);
+    this->texture_3.setFilter(GL_NEAREST, GL_NEAREST);
+    this->texture_4.setFilter(GL_NEAREST, GL_NEAREST);
 
     glNamedFramebufferTexture(this->fbo_id, GL_COLOR_ATTACHMENT0, this->texture_1.getID(), 0);
     glNamedFramebufferTexture(this->fbo_id, GL_COLOR_ATTACHMENT1, this->texture_2.getID(), 0);
@@ -221,7 +236,7 @@ ShaderMain::ShaderMain() : Shader("assets/shader.vert", "assets/shader.frag")
     glProgramUniform1i(this->getShaderHandle(), loc, 0);
 }
 
-void ShaderMain::setMatrixVP(mat4f view_projection)
+void ShaderMain::setMatrixP(mat4f view_projection)
 {
 
     glProgramUniformMatrix4fv(this->getShaderHandle(), 0, 1, GL_FALSE, glm::value_ptr(view_projection));

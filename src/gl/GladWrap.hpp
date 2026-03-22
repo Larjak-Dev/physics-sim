@@ -20,6 +20,7 @@ class Texture
     void bindUnit(uint32_t unit) const;
 
     void resize(vec2u size);
+    void setFilter(uint32_t min_filter, uint32_t mag_filter);
     void loadFromImage(std::string path);
     void createColor(Color color);
     void clear(Color color);
@@ -85,7 +86,7 @@ class ShaderMain : public Shader
   public:
     ShaderMain();
 
-    void setMatrixVP(mat4f view_projection);
+    void setMatrixP(mat4f view_projection);
     void setMatrixM(mat4f model);
     void setColor(Color color);
     void setColorExt(Color color);

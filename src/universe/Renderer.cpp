@@ -8,6 +8,7 @@
 #include "glm/matrix.hpp"
 #include "tools/Debug.hpp"
 #include "tools/Units.hpp"
+#include "universe/Camera.hpp"
 #include "universe/Environment.hpp"
 #include <cmath>
 #include <glad.h>
@@ -54,7 +55,6 @@ Renderer &Renderer::operator=(const Renderer &other)
 
 Transform2D::Transform2D()
 {
-    this->p_gl = mat4f(1.0f);
 }
 
 void Transform2D::recalculate(const Camera &cam, vec2u res)
@@ -62,20 +62,37 @@ void Transform2D::recalculate(const Camera &cam, vec2u res)
     bool changed = false;
     if (this->camera != cam)
     {
-        auto eye = cam.getEye();
-        this->v = glm::lookAt(eye, cam.center, vec3d(0.0, 1.0, 0.0));
+        auto eye = static_cast<vec3f>(cam.getEye() - cam.center);
+
+        this->delta_transform = -cam.center;
+
+        // The camera's Local Up is determined by rotating the global Y axis
+        // (Because you pull the camera back along the Z axis)
+        vec3f up = cam.getRotationMatrix() * vec4f(0.0f, 1.0f, 0.0f, 0.0f);
+
+        this->v = glm::lookAt(eye, vec3f(0.0, 0.0, 0.0), up);
+        this->v_inverse = glm::inverse(this->v);
         changed = true;
 
         // SkyBox
-        vec3f center_delta = static_cast<vec3f>(cam.center - eye);
-        this->v_skybox = glm::lookAt(vec3f(0.0f, 0.0, 0.0f), center_delta, vec3f(0.0f, 1.0f, 0.0f));
+        vec3f center_delta = -eye;
+        this->v_skybox = glm::lookAt(vec3f(0.0f, 0.0, 0.0f), center_delta, vec3f(up));
     }
     if (this->res != res || this->camera != cam)
     {
-        vec2d resd = vec2d(res);
-        auto sv = cam.distance * resd / 300.0;
-        this->p = glm::ortho(-sv.x / 2.0, sv.x / 2.0, -sv.y / 2.0, sv.y / 2.0, cam.distance - sv.x / 2.0,
-                             cam.distance + sv.y / 2.0);
+        vec2f resf = vec2f(res);
+        auto distance = static_cast<float>(cam.distance);
+
+        if (!cam.settings.is_render_perspective)
+        {
+            auto sv = static_cast<float>(distance) * resf / 300.0f;
+            this->p = glm::ortho(-sv.x / 2.0f, sv.x / 2.0f, -sv.y / 2.0f, sv.y / 2.0f, distance - sv.x / 2.0f,
+                                 distance + sv.y / 2.0f);
+        }
+        else
+        {
+            this->p = glm::perspective(cam.settings.fov, resf.x / resf.y, 0.1f, distance * 2.0f);
+        }
         this->p_inverse = glm::inverse(this->p);
         changed = true;
 
@@ -93,16 +110,24 @@ void Transform2D::recalculate(const Camera &cam, vec2u res)
     this->res = res;
 }
 
+vec3f Transform2D::apply(vec3d pos)
+{
+    return this->vp * vec4f(pos + this->delta_transform, 1.0f);
+}
+vec3d Transform2D::inverse(vec3f pos)
+{
+    return vec3d(this->vp_inverse * vec4f(pos, 1.0f)) - this->delta_transform;
+}
+
 vec3d Renderer::cordOnTargetToWorldCord(vec2f cord_on_target, const Camera &cam, double z, sf::RenderTarget &target)
 {
 
     this->transform2D.recalculate(cam, target.getSize());
-    auto vp_inverse = this->transform2D.vp_inverse;
 
     vec2f screen_size = vec2f(vec2u(target.getSize()));
     vec2f gl_cord = 2.0f * cord_on_target / screen_size - 1.0f;
-    vec4d world_cord = vp_inverse * vec4d(gl_cord.x, -gl_cord.y, z, 1.0);
-    return vec3d(world_cord);
+    vec3d world_cord = this->transform2D.inverse({gl_cord.x, -gl_cord.y, z});
+    return world_cord;
 }
 
 unsigned int Renderer::cordOnTargetToBodyInWorld(vec2f cord_on_target, const Camera &cam, Environment &env,
@@ -159,6 +184,7 @@ void Renderer::render(const Environment &env, const Camera &cam, float transpare
     auto &shader = gl::getResourcesGL()->mainShader;
     auto &shader_blur = gl::getResourcesGL()->shader_blur;
     auto &shader_combine = gl::getResourcesGL()->shader_combine;
+    auto &shader_basic = gl::getResourcesGL()->shader_basic;
 
     // Render bodies
     this->frameBuffer.activate(gl::FrameBuffer::Slot_1, gl::FrameBuffer::Slot_2, 0, 0);
@@ -166,49 +192,47 @@ void Renderer::render(const Environment &env, const Camera &cam, float transpare
     shader.setColorExt(color_addon);
     render2D(env, cam, shader);
 
-    ////// Blur
-    auto blur_res = viewport / 6u;
-    glViewport(0, 0, blur_res.x, blur_res.y);
-    this->frameBuffer_blur.resize(blur_res);
+    //////// Blur
+    // auto blur_res = viewport / 6u;
+    // glViewport(0, 0, blur_res.x, blur_res.y);
+    // this->frameBuffer_blur.resize(blur_res);
 
-    // Horizontal Blur
-    this->frameBuffer_blur.texture_1.clear(Color::Transparent);
-    this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_1, 0, 0, 0);
-    shader_blur.setTexture(this->frameBuffer.texture_2);
-    shader_blur.setIsVertical(false);
-    shader_blur.use();
-    gl::getResourcesGL()->quad.render();
+    //// Horizontal Blur
+    // this->frameBuffer_blur.texture_1.clear(Color::Transparent);
+    // this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_1, 0, 0, 0);
+    // shader_blur.setTexture(this->frameBuffer.texture_2);
+    // shader_blur.setIsVertical(false);
+    // shader_blur.use();
+    // gl::getResourcesGL()->quad.render();
 
-    // Vertical Blur
-    this->frameBuffer_blur.texture_2.clear(Color::Transparent);
-    this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
-    shader_blur.setTexture(this->frameBuffer_blur.texture_1);
-    shader_blur.setIsVertical(false);
-    shader_blur.use();
-    gl::getResourcesGL()->quad.render();
+    //// Vertical Blur
+    // this->frameBuffer_blur.texture_2.clear(Color::Transparent);
+    // this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
+    // shader_blur.setTexture(this->frameBuffer_blur.texture_1);
+    // shader_blur.setIsVertical(false);
+    // shader_blur.use();
+    // gl::getResourcesGL()->quad.render();
 
-    this->frameBuffer_blur.texture_3.clear(Color::Transparent);
-    this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_3, 0, 0, 0);
-    shader_blur.setTexture(this->frameBuffer_blur.texture_2);
-    shader_blur.setIsVertical(true);
-    shader_blur.use();
-    gl::getResourcesGL()->quad.render();
+    // this->frameBuffer_blur.texture_3.clear(Color::Transparent);
+    // this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_3, 0, 0, 0);
+    // shader_blur.setTexture(this->frameBuffer_blur.texture_2);
+    // shader_blur.setIsVertical(true);
+    // shader_blur.use();
+    // gl::getResourcesGL()->quad.render();
 
-    // Combine Blur
-    glViewport(0, 0, viewport.x, viewport.y);
+    //// Combine Blur
+    // glViewport(0, 0, viewport.x, viewport.y);
 
-    this->frameBuffer.texture_2.clear(Color::Transparent);
-    this->frameBuffer.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
-    shader_combine.setTexture1(this->frameBuffer.texture_1);
-    shader_combine.setTexture2(this->frameBuffer_blur.texture_3);
-    shader_combine.use();
-    gl::getResourcesGL()->quad.render();
+    // this->frameBuffer.texture_2.clear(Color::Transparent);
+    // this->frameBuffer.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
+    // shader_combine.setTexture1(this->frameBuffer.texture_1);
+    // shader_combine.setTexture2(this->frameBuffer_blur.texture_3);
+    // shader_combine.use();
+    // gl::getResourcesGL()->quad.render();
 
     this->target->setActive(true);
-    shader.setMatrixM(mat4f(1.0f));
-    shader.setColor(Color(0.0f, 0.0f, 0.0f, 0.0f));
-    shader.setTexture(this->frameBuffer.texture_2);
-    shader.use();
+    shader_basic.setTexture(this->frameBuffer.texture_1);
+    shader_basic.use();
     gl::getResourcesGL()->quad.render();
 }
 
@@ -229,7 +253,7 @@ void Renderer::renderSkyBox(gl::Texture &skybox, const Camera &cam, float transp
     shader.setTransparency(transparency);
     shader.setColorExt(Color::Transparent);
     shader.setMatrixM(mat4f(1.0f));
-    shader.setMatrixVP(this->transform2D.vp_skybox);
+    shader.setMatrixP(this->transform2D.vp_skybox);
     shader.setTexture(skybox);
     shader.use();
     gl::getResourcesGL()->sphere.render();
@@ -255,18 +279,13 @@ void Renderer::renderGrid(double scale, const Camera &cam, float transparency, C
     phys::showDebugF("Exponent: {}", exponant_1);
 }
 
-mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const mat4d &vp_world)
+mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const Transform2D transform)
 {
-    auto sum_world = pos_world + size_world;
 
-    auto pos_scene = vp_world * pos_world;
-    auto sum_scene = vp_world * sum_world;
-    auto size_scene = sum_scene - pos_scene;
-
+    auto pos_scene = vec4d(transform.delta_transform, 0.0) + pos_world;
     mat4f model = mat4f(1.0f);
     model = glm::translate(model, vec3f(pos_scene));
-
-    model = glm::scale(model, vec3f(size_scene));
+    model = glm::scale(model, vec3f(size_world));
     return model;
 }
 
@@ -276,19 +295,18 @@ void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &
     auto &target = *this->target;
 
     this->transform2D.recalculate(cam, target.getSize());
-    auto vp_world = this->transform2D.vp;
 
     // Grid Rendering
     auto &vertexArrayGrid = gl::getResourcesGL()->grid;
     const double scale = std::pow(10, exponant);
 
     const auto amountGrid = gl::getResourcesGL()->gridAmount;
-    const auto center_world = vec4d(glm::round(cam.center / scale) * scale, 1.0f);
+    const auto center_world = vec4d(vec2d(glm::round(cam.center / scale) * scale), cam.center.z, 1.0f);
     const auto size_world = vec4d{scale * amountGrid / 2.0, scale * amountGrid / 2.0, scale * amountGrid / 2.0, 0.0};
 
-    const auto model = getModelTransform(center_world, size_world, vp_world);
+    const auto model = getModelTransform(center_world, size_world, transform2D);
     shader.setMatrixM(model);
-    shader.setMatrixVP(mat4f(1.0f));
+    shader.setMatrixP(transform2D.vp);
     shader.setColor(color);
     shader.setColorExt(color);
     shader.setTransparency(transparency);
@@ -307,7 +325,6 @@ void Renderer::render2D(const Environment &env, const Camera &cam, gl::ShaderMai
 
     // Pre calculate View Perspective for double calculations
     this->transform2D.recalculate(cam, target.getSize());
-    auto vp_world = this->transform2D.vp;
 
     // Fancy shadow rendering
     if (cam.settings.is_render_fancy)
@@ -324,20 +341,14 @@ void Renderer::render2D(const Environment &env, const Camera &cam, gl::ShaderMai
         if (body_pair != bodies_zip.end())
         {
             auto &&[body, prop] = *body_pair;
-            auto sun_pos = vp_world * vec4d(body.pos, 1.0);
-            shader.setSunPosition(vec3f(sun_pos));
+            // auto sun_pos = vp_world * vec4d(body.pos, 1.0);
+            // shader.setSunPosition(vec3f(sun_pos));
         }
     }
     shader.setFancy(cam.settings.is_render_fancy);
 
     // View Perspective for float calculation in shader
-    mat4f vp_gl = mat4f(1.0f);
-    if (cam.settings.is_render_perspective)
-    {
-        auto size = target.getSize();
-        // vp_gl = glm::perspective(45.0f, static_cast<float>(size.x) / static_cast<float>(size.y), 0.1f, 2000.0f);
-    }
-    shader.setMatrixVP(vp_gl);
+    shader.setMatrixP(this->transform2D.vp);
     shader.use();
 
     // Render Bodies
@@ -357,7 +368,7 @@ void Renderer::render2D(const Environment &env, const Camera &cam, gl::ShaderMai
             size_world = vec4d(property.size, 0.0f) * cam.settings.body_scale;
         }
 
-        auto model = getModelTransform(pos_world, size_world, vp_world);
+        auto model = getModelTransform(pos_world, size_world, transform2D);
         shader.setMatrixM(model);
         shader.setBrightness(property.brightness);
 
