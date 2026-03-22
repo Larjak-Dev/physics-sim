@@ -1,6 +1,6 @@
 #include "PhysicFunctions.hpp"
-#include "universe/Environment.hpp"
-#include "universe/PhysicConfig.hpp"
+#include "core/universe/Environment.hpp"
+#include "core/universe/PhysicConfig.hpp"
 #include <ranges>
 #include <vector>
 

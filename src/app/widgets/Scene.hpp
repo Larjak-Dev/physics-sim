@@ -1,7 +1,9 @@
 #pragma once
-#include "../../universe/Universe.hpp"
-#include "SFML/Graphics/RenderTexture.hpp"
-#include "SFML/System/Vector2.hpp"
+#include "app/AppResources.hpp"
+#include "core/universe/Universe.hpp"
+#include "graphics/Renderer.hpp"
+#include <SFML/Graphics/RenderTexture.hpp>
+#include <SFML/System/Vector2.hpp>
 
 namespace phys::app
 {
@@ -18,13 +20,20 @@ class TextureWidget
 class SceneWidget : protected TextureWidget
 {
   public:
-    using TextureWidget::TextureWidget;
+    SceneWidget(AppContext &context);
     void update(Universe &universe, bool should_clear = true);
+
+  protected:
+    AppContext &context;
+    Renderer renderer{context};
 
   private:
     unsigned int selected_body_id{0};
     std::pair<Body, Property> editing_pair{};
     phys::vec3d click_pos_world{};
+
+    void updateInputs(ImVec2 cursor, phys::Universe &universe, sf::RenderTexture &texture,
+                      unsigned int &selected_body_id, phys::vec3d &mouse_world);
 };
 
 class UniverseWidget : protected SceneWidget
@@ -32,7 +41,7 @@ class UniverseWidget : protected SceneWidget
   public:
     std::shared_ptr<Universe> universe;
 
-    UniverseWidget();
+    UniverseWidget(AppContext &context);
     void update(bool should_clear = true);
 };
 
@@ -42,6 +51,7 @@ class AlmagationWidget : public UniverseWidget
     std::vector<std::shared_ptr<Universe>> universes;
     std::vector<std::pair<float, Color>> properties;
 
+    AlmagationWidget(AppContext &context);
     void resize(int amount);
     void resize_ColorSpectrum(int amount);
     void resize_TransperancyFade(int amount);

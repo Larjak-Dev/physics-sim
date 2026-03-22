@@ -1,6 +1,6 @@
 
 #include "Environment.hpp"
-#include "universe/PhysicConfig.hpp"
+#include "PhysicConfig.hpp"
 #include <vector>
 
 using namespace phys;

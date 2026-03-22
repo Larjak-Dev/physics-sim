@@ -1,6 +1,6 @@
 #pragma once
-#include "../universe/Universe.hpp"
-#include "universe/Environment.hpp"
+#include "core/universe/Environment.hpp"
+#include "core/universe/Universe.hpp"
 #include <atomic>
 #include <condition_variable>
 #include <mutex>

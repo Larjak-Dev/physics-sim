@@ -1,24 +1,24 @@
 
-#include "Player.hpp"
-#include "../../tools/Language.hpp"
-#include "../widgets/extra.hpp"
-#include "imgui.h"
-#include "imgui_internal.h"
+#include "app/slides/Player.hpp"
+#include "app/widgets/extra.hpp"
+#include "core/tools/Debug.hpp"
+#include "core/tools/Language.hpp"
+#include "core/universe/Camera.hpp"
+#include "core/universe/Environment.hpp"
+#include "core/universe/PhysicConfig.hpp"
 #include "physics/Kinematics.hpp"
 #include "physics/PhysicFunctions.hpp"
-#include "tools/Debug.hpp"
-#include "universe/Camera.hpp"
-#include "universe/Environment.hpp"
-#include "universe/PhysicConfig.hpp"
 #include <OpenXLSX.hpp>
 #include <algorithm>
 #include <filesystem>
+#include <imgui.h>
+#include <imgui_internal.h>
 #include <memory>
 #include <ranges>
 #include <strings.h>
 using namespace phys::app;
 
-Player::Player()
+Player::Player(AppContext &context) : Slide(context)
 {
 }
 
@@ -52,9 +52,9 @@ void Player::multipleScenes()
         ImGui::Begin(player_ID.c_str(), nullptr);
 
         // Initialize Scene widget if needed
-        if (player_amount >= static_cast<int>(this->scene_widgets.size()))
-            this->scene_widgets.resize(player_amount);
-        auto &scene_widget = this->scene_widgets[player_amount - 1];
+        while (player_amount > static_cast<int>(this->scene_widgets.size()))
+            this->scene_widgets.push_back(std::make_unique<UniverseWidget>(this->context));
+        auto &scene_widget = *this->scene_widgets[player_amount - 1];
 
         // Setup Scene widget
         scene_widget.universe->camera = this->scenes_camera;
@@ -471,7 +471,6 @@ void Player::tickRightBar()
     ////Recordings resulted from simulator.
     ////Select recordings to view
     ImGui::BeginChild("Recordings", ImVec2(0, 100));
-    this->recordings.resize(this->recordings.size());
     for (auto &&[i, item] : std::views::enumerate(this->recordings))
     {
         auto &&[recording, b] = item;

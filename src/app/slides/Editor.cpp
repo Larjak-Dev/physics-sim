@@ -1,14 +1,18 @@
 
-#include "Editor.hpp"
-#include "../../physics/Kinematics.hpp"
-#include "../widgets/extra.hpp"
-#include "imgui.h"
+#include "app/slides/Editor.hpp"
+#include "app/widgets/extra.hpp"
+#include "core/tools/Debug.hpp"
+#include "core/tools/Error.hpp"
+#include "core/universe/PhysicConfig.hpp"
+#include "physics/Kinematics.hpp"
 #include "physics/PlanetAPI.hpp"
-#include "tools/Debug.hpp"
-#include "tools/Error.hpp"
-#include "universe/PhysicConfig.hpp"
+#include <imgui.h>
 #include <utility>
 using namespace phys::app;
+
+Editor::Editor(AppContext &context) : Slide(context)
+{
+}
 
 void Editor::tickContent()
 {

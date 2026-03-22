@@ -1,5 +1,6 @@
 #pragma once
-#include "../universe/Universe.hpp"
+#include "app/AppResources.hpp"
+#include "core/universe/Universe.hpp"
 namespace phys
 {
 
@@ -23,6 +24,16 @@ enum class PlanetType
     Triton,
     Pluto
 };
+
+struct PlanetID
+{
+    std::string id;
+    std::string name;
+    phys::Color color;
+    gl::Texture *texture;
+    float brightness{0.0};
+};
+
 struct PlanetResult
 {
     Body body_1;
@@ -45,8 +56,14 @@ class PlanetAPI
 
     double total_days{365.0};
 
+    PlanetAPI(AppContext &context);
     PlanetResult fetchPlanet(PlanetType planetType);
     SolarSystemResult fetchSolarSystem();
+
+  private:
+    AppContext &context;
+
+    PlanetID getPlanetID(PlanetType planetType);
 };
 
 } // namespace phys

@@ -1,17 +1,16 @@
 #include "Scene.hpp"
-#include "../AppResources.hpp"
-#include "SFML/Graphics/Texture.hpp"
-#include "SFML/System/Vector2.hpp"
+#include "app/AppResources.hpp"
+#include "core/Units.hpp"
+#include "core/universe/Environment.hpp"
+#include "core/universe/Universe.hpp"
 #include "extra.hpp"
-#include "gl/ResourcesGl.hpp"
-#include "glm/gtc/constants.hpp"
-#include "imgui-SFML.h"
-#include "imgui.h"
-#include "misc/cpp/imgui_stdlib.h"
-#include "tools/Units.hpp"
-#include "universe/Environment.hpp"
-#include "universe/Universe.hpp"
+#include <SFML/Graphics/Texture.hpp>
+#include <SFML/System/Vector2.hpp>
 #include <cmath>
+#include <glm/gtc/constants.hpp>
+#include <imgui-SFML.h>
+#include <imgui.h>
+#include <misc/cpp/imgui_stdlib.h>
 #include <ranges>
 
 using namespace phys::app;
@@ -38,8 +37,12 @@ void TextureWidget::update()
     }
 }
 
-void updateInputs(ImVec2 cursor, phys::Universe &universe, sf::RenderTexture &texture, unsigned int &selected_body_id,
-                  phys::vec3d &mouse_world)
+SceneWidget::SceneWidget(AppContext &context) : context(context)
+{
+}
+
+void SceneWidget::updateInputs(ImVec2 cursor, phys::Universe &universe, sf::RenderTexture &texture,
+                               unsigned int &selected_body_id, phys::vec3d &mouse_world)
 {
     using namespace phys;
     ImGui::SetCursorPos(cursor);
@@ -53,7 +56,7 @@ void updateInputs(ImVec2 cursor, phys::Universe &universe, sf::RenderTexture &te
             auto delta = vec2f(mouse_delta.x, mouse_delta.y);
 
             auto delta_scene = 2.0 * vec2d(delta) / vec2d(vec2u(texture.getSize()));
-            auto delta_world = universe.renderer.transform2D.p_inverse * vec4f(delta_scene.x, delta_scene.y, 0.0, 1.0);
+            auto delta_world = this->renderer.transform2D.p_inverse * vec4f(delta_scene.x, delta_scene.y, 0.0, 1.0);
 
             auto delta_crossX = vec3f(universe.camera->getCrossX()) * -delta_world.x;
             auto delta_crossY = vec3f(universe.camera->getCrossY()) * delta_world.y;
@@ -97,7 +100,7 @@ void updateInputs(ImVec2 cursor, phys::Universe &universe, sf::RenderTexture &te
                 vec2f itemPos = ImGui::GetItemRectMin();
                 auto pos = mousePosGlobal - itemPos;
                 auto env = static_cast<Environment>(*universe.env);
-                selected_body_id = universe.renderer.cordOnTargetToBodyInWorld(pos, *universe.camera, env, texture);
+                selected_body_id = this->renderer.cordOnTargetToBodyInWorld(pos, *universe.camera, env, texture);
             }
         }
 
@@ -108,14 +111,14 @@ void updateInputs(ImVec2 cursor, phys::Universe &universe, sf::RenderTexture &te
             vec2f itemPos = ImGui::GetItemRectMin();
             auto pos = mousePosGlobal - itemPos;
             auto env = static_cast<Environment>(*universe.env);
-            if (auto body_id = universe.renderer.cordOnTargetToBodyInWorld(pos, *universe.camera, env, texture))
+            if (auto body_id = this->renderer.cordOnTargetToBodyInWorld(pos, *universe.camera, env, texture))
             {
                 selected_body_id = body_id;
                 ImGui::OpenPopup("Body");
             }
             else
             {
-                mouse_world = universe.renderer.cordOnTargetToWorldCord(pos, *universe.camera, 0, texture);
+                mouse_world = this->renderer.cordOnTargetToWorldCord(pos, *universe.camera, 0, texture);
                 ImGui::OpenPopup("World");
             }
         }
@@ -136,6 +139,8 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
     }
 
     auto cursor = ImGui::GetCursorPos();
+    auto &resources_gl = this->context.resources_gl;
+    auto &resources_app = this->context.resources_app;
 
     // update texture widget
     TextureWidget::update();
@@ -146,14 +151,14 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
     auto cam = *universe.camera;
 
     // Render Texture widget
-    universe.renderer.activate(this->texture);
-    universe.renderer.clear(Color::Black);
+    this->renderer.activate(this->texture);
+    this->renderer.clear(Color::Black);
     if (cam.settings.is_render_stars)
-        universe.renderer.renderSkyBox(gl::getResourcesGL()->stars, *universe.camera, 0.5f);
+        this->renderer.renderSkyBox(resources_gl.stars, *universe.camera, 0.5f);
     if (cam.settings.is_render_grid)
-        universe.renderer.renderGrid(1, *universe.camera, 1.0f, Color(0.5, 0.5, 0.5, 1.0));
-    universe.renderer.render(static_cast<Environment>(*universe.env), *universe.camera);
-    universe.renderer.deactivate();
+        this->renderer.renderGrid(1, *universe.camera, 1.0f, Color(0.5, 0.5, 0.5, 1.0));
+    this->renderer.renderBodies(static_cast<Environment>(*universe.env), *universe.camera);
+    this->renderer.deactivate();
 
     // Extra
     auto &camera = *universe.camera;
@@ -165,7 +170,7 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
     // Viewport
     if (ImGui::CollapsingHeader("Viewport"))
     {
-        ImGui::PushFont(phys::getAppResources().font_small);
+        ImGui::PushFont(resources_app.font_small);
         ImGui::BeginChild("Viewport", ImVec2(width_c, 115), ImGuiChildFlags_Borders);
         ImGui::BeginTable("##ViewTable", 2);
         ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 30);
@@ -188,7 +193,7 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
     if (ImGui::CollapsingHeader("Rendering"))
     {
 
-        ImGui::PushFont(phys::getAppResources().font_small);
+        ImGui::PushFont(resources_app.font_small);
         ImGui::BeginChild("Rendering", ImVec2(width_c, 100), ImGuiChildFlags_Borders);
 
         ImGui::BeginTable("##ViewTable", 2);
@@ -464,7 +469,7 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
     }
 }
 
-UniverseWidget::UniverseWidget()
+UniverseWidget::UniverseWidget(AppContext &context) : SceneWidget(context)
 {
     this->universe = std::make_shared<Universe>();
 }
@@ -477,6 +482,10 @@ void UniverseWidget::update(bool should_clear)
         return;
     }
     SceneWidget::update(*this->universe, should_clear);
+}
+
+AlmagationWidget::AlmagationWidget(AppContext &context) : UniverseWidget(context)
+{
 }
 
 void AlmagationWidget::resize(int amount)
@@ -546,14 +555,14 @@ void AlmagationWidget::update()
     }
 
     this->texture.clear();
-    this->universe->renderer.activate(this->texture);
+    this->renderer.activate(this->texture);
     for (auto &&[i, universe] : std::views::enumerate(this->universes))
     {
         if (!universe || !universe->env)
             continue;
-        this->universe->renderer.render(static_cast<Environment>(*universe->env), *this->universes[0]->camera,
-                                        this->properties[i].first, this->properties[i].second);
+        this->renderer.renderBodies(static_cast<Environment>(*universe->env), *this->universes[0]->camera,
+                                    this->properties[i].first, this->properties[i].second);
     }
-    this->universe->renderer.deactivate();
+    this->renderer.deactivate();
     UniverseWidget::update(false);
 }

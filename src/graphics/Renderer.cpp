@@ -1,39 +1,39 @@
 #include "Renderer.hpp"
-#include "SFML/Graphics/RenderTarget.hpp"
-#include "SFML/Graphics/Text.hpp"
-#include "SFML/System/Vector2.hpp"
-#include "gl/GladWrap.hpp"
-#include "gl/ResourcesGl.hpp"
-#include "glm/gtc/constants.hpp"
-#include "glm/matrix.hpp"
-#include "tools/Debug.hpp"
-#include "tools/Units.hpp"
-#include "universe/Camera.hpp"
-#include "universe/Environment.hpp"
+#include "GladWrap.hpp"
+#include "app/AppResources.hpp"
+#include "core/Units.hpp"
+#include "core/tools/Debug.hpp"
+#include "core/universe/Camera.hpp"
+#include "core/universe/Environment.hpp"
+#include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Graphics/Text.hpp>
+#include <SFML/System/Vector2.hpp>
 #include <cmath>
 #include <glad.h>
 #include <glm/ext/matrix_clip_space.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/ext/scalar_constants.hpp>
+#include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/matrix.hpp>
 #include <limits>
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/intersect.hpp>
 #include <ranges>
 
-#include "../tools/Debug.hpp"
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/intersect.hpp>
 
+#include "core/tools/Debug.hpp"
 using namespace phys;
 
-Renderer::Renderer()
+Renderer::Renderer(AppContext &context) : context(context)
 {
 }
 
-Renderer::Renderer(const Renderer &other)
+Renderer::Renderer(const Renderer &other) : context(other.context)
 {
     this->transform2D = other.transform2D;
-    this->target = other.target;
+    this->target = nullptr;
     if (other.target)
     {
         this->frameBuffer.resize(other.target->getSize());
@@ -45,7 +45,7 @@ Renderer &Renderer::operator=(const Renderer &other)
     if (this == &other)
         return *this;
     this->transform2D = other.transform2D;
-    this->target = other.target;
+    this->target = nullptr;
     if (other.target)
     {
         this->frameBuffer.resize(other.target->getSize());
@@ -173,7 +173,7 @@ void Renderer::clear(Color background)
     this->frameBuffer.texture_4.clear(Color::Transparent);
 }
 
-void Renderer::render(const Environment &env, const Camera &cam, float transparency, Color color_addon)
+void Renderer::renderBodies(const Environment &env, const Camera &cam, float transparency, Color color_addon)
 {
     assert(this->target);
     auto &target = *this->target;
@@ -181,16 +181,18 @@ void Renderer::render(const Environment &env, const Camera &cam, float transpare
     glViewport(0, 0, viewport.x, viewport.y);
     this->frameBuffer.resize(target.getSize());
 
-    auto &shader = gl::getResourcesGL()->mainShader;
-    auto &shader_blur = gl::getResourcesGL()->shader_blur;
-    auto &shader_combine = gl::getResourcesGL()->shader_combine;
-    auto &shader_basic = gl::getResourcesGL()->shader_basic;
+    auto &resources_gl = context.resources_gl;
+    auto &shader = resources_gl.mainShader;
+    auto &shader_blur = resources_gl.shader_blur;
+    auto &shader_combine = resources_gl.shader_combine;
+    auto &shader_basic = resources_gl.shader_basic;
+    auto &quad = resources_gl.quad;
 
     // Render bodies
     this->frameBuffer.activate(gl::FrameBuffer::Slot_1, gl::FrameBuffer::Slot_2, 0, 0);
     shader.setTransparency(transparency);
     shader.setColorExt(color_addon);
-    render2D(env, cam, shader);
+    renderBodies2D(env, cam, shader);
 
     //////// Blur
     // auto blur_res = viewport / 6u;
@@ -233,7 +235,7 @@ void Renderer::render(const Environment &env, const Camera &cam, float transpare
     this->target->setActive(true);
     shader_basic.setTexture(this->frameBuffer.texture_1);
     shader_basic.use();
-    gl::getResourcesGL()->quad.render();
+    quad.render();
 }
 
 void Renderer::renderSkyBox(gl::Texture &skybox, const Camera &cam, float transparency)
@@ -245,7 +247,9 @@ void Renderer::renderSkyBox(gl::Texture &skybox, const Camera &cam, float transp
     this->frameBuffer.resize(target.getSize());
     this->transform2D.recalculate(cam, viewport);
 
-    auto &shader = gl::getResourcesGL()->mainShader;
+    auto &resources_gl = context.resources_gl;
+    auto &shader = resources_gl.mainShader;
+    auto &sphere = resources_gl.sphere;
 
     this->frameBuffer.activate(gl::FrameBuffer::Slot_1, gl::FrameBuffer::Slot_2, 0, 0);
     shader.setBrightness(0.2f);
@@ -256,7 +260,7 @@ void Renderer::renderSkyBox(gl::Texture &skybox, const Camera &cam, float transp
     shader.setMatrixP(this->transform2D.vp_skybox);
     shader.setTexture(skybox);
     shader.use();
-    gl::getResourcesGL()->sphere.render();
+    sphere.render();
 }
 
 void Renderer::renderGrid(double scale, const Camera &cam, float transparency, Color color)
@@ -267,7 +271,9 @@ void Renderer::renderGrid(double scale, const Camera &cam, float transparency, C
     glViewport(0, 0, viewport.x, viewport.y);
     this->frameBuffer.resize(target.getSize());
 
-    auto &shader = gl::getResourcesGL()->mainShader;
+    auto &resources_gl = context.resources_gl;
+    auto &shader = resources_gl.mainShader;
+
     double exponant_1 = std::floor(std::log10(cam.distance * 0.6));
     double exponant_2 = std::floor(std::log10(cam.distance) + 1);
 
@@ -293,18 +299,19 @@ void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &
 {
     assert(this->target);
     auto &target = *this->target;
-
     this->transform2D.recalculate(cam, target.getSize());
 
+    auto &resources_gl = context.resources_gl;
+    auto &vertexArrayGrid = resources_gl.grid;
+
     // Grid Rendering
-    auto &vertexArrayGrid = gl::getResourcesGL()->grid;
-    const double scale = std::pow(10, exponant);
+    const auto amount_grid = resources_gl.grid_amount;
+    const double scale_grid = std::pow(10, exponant);
+    const auto center_grid = vec4d(vec2d(glm::round(cam.center / scale_grid) * scale_grid), cam.center.z, 1.0f);
+    const auto size_grid =
+        vec4d{scale_grid * amount_grid / 2.0, scale_grid * amount_grid / 2.0, scale_grid * amount_grid / 2.0, 0.0};
 
-    const auto amountGrid = gl::getResourcesGL()->gridAmount;
-    const auto center_world = vec4d(vec2d(glm::round(cam.center / scale) * scale), cam.center.z, 1.0f);
-    const auto size_world = vec4d{scale * amountGrid / 2.0, scale * amountGrid / 2.0, scale * amountGrid / 2.0, 0.0};
-
-    const auto model = getModelTransform(center_world, size_world, transform2D);
+    const auto model = getModelTransform(center_grid, size_grid, transform2D);
     shader.setMatrixM(model);
     shader.setMatrixP(transform2D.vp);
     shader.setColor(color);
@@ -317,14 +324,16 @@ void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &
     vertexArrayGrid.renderLines();
 }
 
-void Renderer::render2D(const Environment &env, const Camera &cam, gl::ShaderMain &shader)
+void Renderer::renderBodies2D(const Environment &env, const Camera &cam, gl::ShaderMain &shader)
 {
     assert(env.properties.size() >= env.bodies.size());
     assert(this->target);
     auto &target = *this->target;
-
-    // Pre calculate View Perspective for double calculations
     this->transform2D.recalculate(cam, target.getSize());
+
+    auto &resources_gl = context.resources_gl;
+    auto &vertexArray = resources_gl.sphere;
+    auto &default_tex = resources_gl.default_tex;
 
     // Fancy shadow rendering
     if (cam.settings.is_render_fancy)
@@ -345,17 +354,14 @@ void Renderer::render2D(const Environment &env, const Camera &cam, gl::ShaderMai
             // shader.setSunPosition(vec3f(sun_pos));
         }
     }
-    shader.setFancy(cam.settings.is_render_fancy);
 
-    // View Perspective for float calculation in shader
+    shader.setFancy(cam.settings.is_render_fancy);
     shader.setMatrixP(this->transform2D.vp);
     shader.use();
 
     // Render Bodies
-    auto &vertexArray = gl::getResourcesGL()->sphere;
-    for (auto [index, body] : std::views::enumerate(env.bodies))
+    for (auto &&[body, property] : std::views::zip(env.bodies, env.properties))
     {
-        auto &property = env.properties[index];
         // Model Configuring
         auto pos_world = vec4d(body.pos, 1.0f);
         auto size_world = vec4d(property.size, 0.0f);
@@ -373,15 +379,15 @@ void Renderer::render2D(const Environment &env, const Camera &cam, gl::ShaderMai
         shader.setBrightness(property.brightness);
 
         // Color + Texture
-        auto color = env.properties[index].color;
-        if (env.properties[index].texture && cam.settings.is_render_textures)
+        auto color = property.color;
+        if (property.texture && cam.settings.is_render_textures)
         {
-            env.properties[index].texture->bindUnit(0);
+            property.texture->bindUnit(0);
             shader.setColor({0, 0, 0, 0});
         }
         else
         {
-            gl::getResourcesGL()->default_tex.bindUnit(0);
+            default_tex.bindUnit(0);
             shader.setColor(color);
         }
 

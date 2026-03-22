@@ -1,5 +1,5 @@
 #include "Universe.hpp"
-#include "universe/Environment.hpp"
+#include "Environment.hpp"
 
 using namespace phys;
 

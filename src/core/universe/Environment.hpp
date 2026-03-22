@@ -1,6 +1,6 @@
 #pragma once
-#include "../gl/GladWrap.hpp"
-#include "../tools/Units.hpp"
+#include "../../graphics/GladWrap.hpp"
+#include "../Units.hpp"
 #include "PhysicConfig.hpp"
 #include <mutex>
 #include <vector>
@@ -35,6 +35,10 @@ struct Property
 };
 
 using Properties = std::vector<Property>;
+
+//////////////////
+/// Environment
+//////////////////
 
 struct EnvironmentBase
 {

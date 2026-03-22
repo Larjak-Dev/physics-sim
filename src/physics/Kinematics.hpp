@@ -1,7 +1,7 @@
 #pragma once
-#include "../universe/Environment.hpp"
-#include "../universe/PhysicConfig.hpp"
-#include "universe/Universe.hpp"
+#include "core/universe/Environment.hpp"
+#include "core/universe/PhysicConfig.hpp"
+#include "core/universe/Universe.hpp"
 
 namespace phys
 {

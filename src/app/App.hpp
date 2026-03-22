@@ -1,6 +1,5 @@
 
 #pragma once
-#include "../gl/ResourcesGl.hpp"
 #include <SFML/Graphics.hpp>
 #include <SFML/Window/VideoMode.hpp>
 #include <cstdint>
@@ -17,13 +16,10 @@ class App
   protected:
     // Init Opengl
     sf::RenderWindow app_window;
-    // OpenGL Required
-    std::shared_ptr<gl::ResourcesGl> resourcesGl;
 
     // Window Variables
     sf::Clock delta_clock;
 
-    virtual void init();
     virtual void tick();
 
   private:

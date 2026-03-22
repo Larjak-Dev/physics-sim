@@ -1,22 +1,15 @@
 #include "App.hpp"
 #include "SFML/Window/VideoMode.hpp"
 #include "SFML/Window/WindowEnums.hpp"
-#include "gl/ResourcesGl.hpp"
-#include "imgui-SFML.h"
-#include "imgui.h"
-#include "tools/Debug.hpp"
-#include "tools/Error.hpp"
+#include "core/tools/Debug.hpp"
+#include "core/tools/Error.hpp"
 #include <cassert>
 #include <glad.h>
+#include <imgui-SFML.h>
+#include <imgui.h>
 #include <iostream>
 
 using namespace phys::app;
-
-App::App(sf::VideoMode videoMode, std::string title, std::uint32_t style, sf::State state, sf::ContextSettings settings)
-    : app_window(videoMode, title, style, state, settings)
-{
-    app_window.setVerticalSyncEnabled(true);
-}
 
 void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length,
                                 const GLchar *message, const void *userParam)
@@ -40,20 +33,22 @@ void loadGlad()
     glDebugMessageCallback(MessageCallback, 0);
 }
 
-void App::start()
+App::App(sf::VideoMode videoMode, std::string title, std::uint32_t style, sf::State state, sf::ContextSettings settings)
+    : app_window(videoMode, title, style, state, settings)
 {
+    app_window.setVerticalSyncEnabled(true);
 
     loadGlad();
-    this->resourcesGl = std::make_shared<gl::ResourcesGl>();
-    gl::setResourcesGL(this->resourcesGl);
 
     if (!ImGui::SFML::Init(this->app_window))
     {
         showMessage("Unable to init SFML-ImGui!");
         return;
     }
+}
 
-    init();
+void App::start()
+{
 
     while (this->app_window.isOpen())
     {
@@ -93,10 +88,6 @@ void App::_render()
     ImGui::SFML::Render(this->app_window);
 
     this->app_window.display();
-}
-
-void App::init()
-{
 }
 
 void App::tick()

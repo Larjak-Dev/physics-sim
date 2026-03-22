@@ -1,7 +1,8 @@
 
 #pragma once
-#include "../widgets/Scene.hpp"
 #include "Slide.hpp"
+#include "app/AppResources.hpp"
+#include "app/widgets/Scene.hpp"
 #include "physics/Simulator.hpp"
 
 namespace phys::app
@@ -9,15 +10,15 @@ namespace phys::app
 class Player : public Slide
 {
   public:
-    Player();
+    Player(AppContext &context);
     void tickContent();
     void tickRightBar();
 
   private:
     // Widgets
-    SceneWidget review_panel;
-    std::vector<UniverseWidget> scene_widgets;
-    AlmagationWidget scene_widget_alm;
+    SceneWidget review_panel{this->context};
+    std::vector<std::unique_ptr<UniverseWidget>> scene_widgets;
+    AlmagationWidget scene_widget_alm{this->context};
     std::shared_ptr<Camera> scenes_camera;
 
     // Simulator

@@ -1,31 +1,26 @@
 #include "AppPhysics.hpp"
-#include "SFML/Window/ContextSettings.hpp"
-#include "SFML/Window/WindowEnums.hpp"
 #include "app/AppResources.hpp"
-#include "imgui-SFML.h"
-#include "imgui.h"
-#include "imgui_internal.h"
+#include "core/universe/PhysicConfig.hpp"
 #include "physics/Kinematics.hpp"
-#include "universe/PhysicConfig.hpp"
 #include <ImGuiUtils.h>
+#include <SFML/Window/ContextSettings.hpp>
+#include <SFML/Window/WindowEnums.hpp>
+#include <imgui-SFML.h>
+#include <imgui.h>
+#include <imgui_internal.h>
 
 using namespace phys::app;
 
 PhysicApp::PhysicApp(sf::ContextSettings settings)
     : App(sf::VideoMode({1400, 800}), "PhysicApp", sf::Style::Default, sf::State::Windowed, settings)
 {
-    auto config = phys::createPerfectSatelite(1.0, 1.0, 10, 2.0);
-    this->universe = std::make_shared<Universe>(phys::createUniverse(config));
-}
-
-void PhysicApp::init()
-{
+    // ImGui setup
     ImGuiIO &io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
-    auto resources = this->resources;
-    // Load JetBrains Mono (Size 18-20 is sweet spot for high-DPI)
+    auto &resources = this->appContext.resources_app;
+
     resources.font_regular = io.Fonts->AddFontFromFileTTF("assets/inter.ttf", 16.0f);
     if (resources.font_regular)
     {
@@ -38,13 +33,12 @@ void PhysicApp::init()
         resources.font_small = io.FontDefault;
     }
 
-    phys::setAppResources(resources);
-
-    // Apply the spectrum theme style
     ImGui::SetupImGuiStyle(true, 1.0f);
-
-    // CRITICAL: Re-bake the font atlas texture for the GPU
     ImGui::SFML::UpdateFontTexture();
+
+    // Variables
+    auto config = phys::createPerfectSatelite(1.0, 1.0, 10, 2.0);
+    this->universe = std::make_shared<Universe>(phys::createUniverse(config));
 }
 
 void PhysicApp::tick()
@@ -56,35 +50,35 @@ void PhysicApp::tick()
     ImGui::Begin("Slides");
     if (ImGui::Button("Editor"))
     {
-        this->selectedSlide = SlideType::Editor;
+        this->selected_slide = SlideType::Editor;
     }
     if (ImGui::Button("Simulator"))
     {
-        this->selectedSlide = SlideType::Simulator;
+        this->selected_slide = SlideType::Simulator;
     }
     if (ImGui::Button("Player"))
     {
-        this->selectedSlide = SlideType::Player;
+        this->selected_slide = SlideType::Player;
     }
     ImGui::End();
 
-    switch (this->selectedSlide)
+    switch (this->selected_slide)
     {
     case SlideType::Editor:
-        this->editorSlide.setUniverse(this->universe);
-        this->editorSlide.tickContent();
-        this->editorSlide.tickRightBar(this->universe);
+        this->editor_slide.setUniverse(this->universe);
+        this->editor_slide.tickContent();
+        this->editor_slide.tickRightBar(this->universe);
         break;
     case SlideType::Simulator:
-        this->simulatorSlide.setUniverse(this->universe);
-        this->simulatorSlide.tickContent();
-        this->simulatorSlide.tickRightBar();
+        this->simulator_slide.setUniverse(this->universe);
+        this->simulator_slide.tickContent();
+        this->simulator_slide.tickRightBar();
         break;
     case SlideType::Player:
 
-        this->playerSlide.setUniverse(this->universe);
-        this->playerSlide.tickContent();
-        this->playerSlide.tickRightBar();
+        this->player_slide.setUniverse(this->universe);
+        this->player_slide.tickContent();
+        this->player_slide.tickRightBar();
         break;
     }
 }

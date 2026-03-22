@@ -1,21 +1,16 @@
-// FORWARD DECLARATION HANDLING
-#include "glm/fwd.hpp"
-#include "tools/Units.hpp"
-#define PAR_SHAPES_IMPLEMENTATION
-#include <glm/gtc/type_ptr.hpp>
-#include <par_shapes.h>
-
 #include "GladWrap.hpp"
-
+#include "core/Units.hpp"
+#include "core/tools/Error.hpp"
+#include "glm/fwd.hpp"
 #include <SFML/Graphics/Image.hpp>
-
-#include <glad.h>
-
 #include <fstream>
+#include <glad.h>
 #include <ranges>
 #include <sstream>
 
-#include "../tools/Error.hpp"
+#define PAR_SHAPES_IMPLEMENTATION
+#include <glm/gtc/type_ptr.hpp>
+#include <par_shapes.h>
 
 using namespace phys::gl;
 

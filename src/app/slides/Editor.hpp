@@ -1,6 +1,7 @@
 #pragma once
-#include "../widgets/Scene.hpp"
-#include "Slide.hpp"
+#include "app/AppResources.hpp"
+#include "app/slides/Slide.hpp"
+#include "app/widgets/Scene.hpp"
 #include "physics/Kinematics.hpp"
 #include "physics/PlanetAPI.hpp"
 #include "physics/Simulator.hpp"
@@ -17,16 +18,17 @@ class Editor : public Slide
 {
 
   public:
+    Editor(AppContext &context);
     void tickContent();
     void tickRightBar(std::shared_ptr<Universe> &universe_main);
 
   private:
-    SceneWidget reviewPanel;
-    SceneWidget simulator;
+    SceneWidget reviewPanel{this->context};
+    SceneWidget simulator{this->context};
 
     PresetType universe_type;
     KinematicConfig kinematic_config;
-    PlanetAPI planet_api;
+    PlanetAPI planet_api{this->context};
 
     void tickKinematic(std::shared_ptr<Universe> &universe_main);
     void tickSolarSystem(std::shared_ptr<Universe> &universe_main);

@@ -1,10 +1,14 @@
 #include "Simulator.hpp"
-#include "../widgets/extra.hpp"
+#include "app/widgets/extra.hpp"
+#include "core/tools/Debug.hpp"
+#include "core/universe/PhysicConfig.hpp"
 #include "imgui.h"
-#include "tools/Debug.hpp"
-#include "universe/PhysicConfig.hpp"
 #include <utility>
 using namespace phys::app;
+
+Simulator::Simulator(AppContext &context) : Slide(context)
+{
+}
 
 void Simulator::tickContent()
 {

@@ -1,8 +1,7 @@
 #include "PlanetAPI.hpp"
-#include "../tools/Error.hpp"
-#include "gl/GladWrap.hpp"
-#include "gl/ResourcesGl.hpp"
-#include "universe/PhysicConfig.hpp"
+#include "core/tools/Error.hpp"
+#include "core/universe/PhysicConfig.hpp"
+#include "graphics/GladWrap.hpp"
 #include <cpr/cpr.h>
 #include <filesystem>
 #include <format>
@@ -14,17 +13,11 @@
 using namespace phys;
 using json = nlohmann::json;
 
-struct PlanetID
+PlanetID PlanetAPI::getPlanetID(PlanetType planetType)
 {
-    std::string id;
-    std::string name;
-    phys::Color color;
-    gl::Texture *texture;
-    float brightness{0.0};
-};
 
-PlanetID getPlanetID(PlanetType planetType)
-{
+    auto &resources_gl = this->context.resources_gl;
+
     std::string id;
     std::string name;
     phys::Color color;
@@ -37,7 +30,7 @@ PlanetID getPlanetID(PlanetType planetType)
         id = "10";
         name = "Sun";
         color = {1.0f, 1.0f, 0.4f};
-        texture = &gl::getResourcesGL()->sun;
+        texture = &resources_gl.sun;
         brightness = 1.0;
         break;
     case PlanetType::Mercury:
@@ -45,63 +38,63 @@ PlanetID getPlanetID(PlanetType planetType)
         id = "199";
         name = "Mercury";
         color = {0.6f, 0.6f, 0.6f};
-        texture = &gl::getResourcesGL()->mercury;
+        texture = &resources_gl.mercury;
         break;
     case PlanetType::Venus:
 
         id = "299";
         name = "Venus";
         color = {0.7f, 0.7f, 0.5f};
-        texture = &gl::getResourcesGL()->venus;
+        texture = &resources_gl.venus;
         break;
     case PlanetType::Earth:
 
         id = "399";
         name = "Earth";
         color = {0, 0.5f, 0};
-        texture = &gl::getResourcesGL()->earth_day;
+        texture = &resources_gl.earth_day;
         break;
     case PlanetType::Mars:
 
         id = "499";
         name = "Mars";
         color = {0.8f, 0.3f, 0.2f};
-        texture = &gl::getResourcesGL()->mars;
+        texture = &resources_gl.mars;
         break;
     case PlanetType::Jupiter:
 
         id = "599";
         name = "Jupiter";
         color = {0.0, 1.0, 1.0};
-        texture = &gl::getResourcesGL()->jupiter;
+        texture = &resources_gl.jupiter;
         break;
     case PlanetType::Saturn:
 
         id = "699";
         name = "Saturn";
         color = {0.8f, 0.8f, 0.6f};
-        texture = &gl::getResourcesGL()->saturn;
+        texture = &resources_gl.saturn;
         break;
     case PlanetType::Uranus:
 
         id = "799";
         name = "Uranus";
         color = {0.6f, 0.8f, 0.9f};
-        texture = &gl::getResourcesGL()->uranus;
+        texture = &resources_gl.uranus;
         break;
     case PlanetType::Neptune:
 
         id = "899";
         name = "Neptune";
         color = {0.4f, 0.6f, 0.9f};
-        texture = &gl::getResourcesGL()->neptune;
+        texture = &resources_gl.neptune;
         break;
     case PlanetType::Moon:
 
         id = "301";
         name = "Moon";
         color = {0.7f, 0.7f, 0.7f};
-        texture = &gl::getResourcesGL()->moon;
+        texture = &resources_gl.moon;
         break;
     case PlanetType::Ganymede:
 
@@ -150,6 +143,10 @@ PlanetID getPlanetID(PlanetType planetType)
         break;
     }
     return PlanetID{id, name, color, texture, brightness};
+}
+
+PlanetAPI::PlanetAPI(AppContext &context) : context(context)
+{
 }
 
 PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)

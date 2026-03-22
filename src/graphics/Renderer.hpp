@@ -1,9 +1,10 @@
 
 #pragma once
-#include "../gl/GladWrap.hpp"
-#include "Camera.hpp"
-#include "Environment.hpp"
-#include "tools/Units.hpp"
+#include "../core/Units.hpp"
+#include "../core/universe/Camera.hpp"
+#include "../core/universe/Environment.hpp"
+#include "GladWrap.hpp"
+#include "app/AppResources.hpp"
 #include <SFML/Graphics/RenderTarget.hpp>
 
 namespace phys
@@ -45,7 +46,7 @@ class Renderer
     gl::FrameBuffer frameBuffer{};
     gl::FrameBuffer frameBuffer_blur{};
 
-    Renderer();
+    Renderer(AppContext &context);
     Renderer(const Renderer &other);
     Renderer &operator=(const Renderer &other);
 
@@ -57,17 +58,20 @@ class Renderer
                                            sf::RenderTarget &target);
     void clear(Color background);
 
-    void render(const Environment &env, const Camera &cam, float transarency = 1.0f,
-                Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
+    void renderBodies(const Environment &env, const Camera &cam, float transarency = 1.0f,
+                      Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
+
     void renderGrid(double exponant, const Camera &cam, float transarency = 1.0f,
                     Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
 
     void renderSkyBox(gl::Texture &skybox, const Camera &cam, float transparency = 1.0f);
 
   private:
+    AppContext &context;
+
     void renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &shader,
                       Color color = Color(1.0, 1.0, 1.0, 1.0), float transarency = 1.0f);
-    void render2D(const Environment &env, const Camera &cam, gl::ShaderMain &shader);
+    void renderBodies2D(const Environment &env, const Camera &cam, gl::ShaderMain &shader);
 
     // void render3D(sf::RenderTarget& target, sf::Vector2u size, const Environment& env, const Camera& cam);
 };
