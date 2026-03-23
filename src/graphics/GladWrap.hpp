@@ -86,7 +86,8 @@ class ShaderMain : public Shader
   public:
     ShaderMain();
 
-    void setMatrixP(mat4f view_projection);
+    void setMatrixVP(mat4f view_projection);
+    void setMatrixV(mat4f view);
     void setMatrixM(mat4f model);
     void setColor(Color color);
     void setColorExt(Color color);
@@ -96,6 +97,7 @@ class ShaderMain : public Shader
     void setBodyPosition(vec3f pos);
     void setSunPosition(vec3f pos);
     void setFancy(bool isFancy);
+    void setMatrixNormal(mat4f normal_matrix);
 };
 class ShaderBasic : public Shader
 {
@@ -141,7 +143,7 @@ class VertexArray
     void renderLines();
 
   private:
-    uint32_t VAO{0}, VBO{0}, EBO{0}, VBO_TEX{0};
+    uint32_t VAO{0}, VBO{0}, EBO{0}, VBO_TEX{0}, VBO_NORMAL{0};
     uint32_t indices{0};
 };
 

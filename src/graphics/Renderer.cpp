@@ -171,6 +171,10 @@ void Renderer::clear(Color background)
     this->frameBuffer.texture_2.clear(Color::Transparent);
     this->frameBuffer.texture_3.clear(Color::Transparent);
     this->frameBuffer.texture_4.clear(Color::Transparent);
+
+    float depth = 1.0f;
+    int stencil = 0;
+    glClearNamedFramebufferfi(this->frameBuffer.fbo_id, GL_DEPTH_STENCIL, 0, depth, stencil);
 }
 
 void Renderer::renderBodies(const Environment &env, const Camera &cam, float transparency, Color color_addon)
@@ -190,50 +194,53 @@ void Renderer::renderBodies(const Environment &env, const Camera &cam, float tra
 
     // Render bodies
     this->frameBuffer.activate(gl::FrameBuffer::Slot_1, gl::FrameBuffer::Slot_2, 0, 0);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LESS);
     shader.setTransparency(transparency);
     shader.setColorExt(color_addon);
     renderBodies2D(env, cam, shader);
+    glDisable(GL_DEPTH_TEST);
 
     //////// Blur
-    // auto blur_res = viewport / 6u;
-    // glViewport(0, 0, blur_res.x, blur_res.y);
-    // this->frameBuffer_blur.resize(blur_res);
+    auto blur_res = viewport / 6u;
+    glViewport(0, 0, blur_res.x, blur_res.y);
+    this->frameBuffer_blur.resize(blur_res);
 
-    //// Horizontal Blur
-    // this->frameBuffer_blur.texture_1.clear(Color::Transparent);
-    // this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_1, 0, 0, 0);
-    // shader_blur.setTexture(this->frameBuffer.texture_2);
-    // shader_blur.setIsVertical(false);
-    // shader_blur.use();
-    // gl::getResourcesGL()->quad.render();
+    // Horizontal Blur
+    this->frameBuffer_blur.texture_1.clear(Color::Transparent);
+    this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_1, 0, 0, 0);
+    shader_blur.setTexture(this->frameBuffer.texture_2);
+    shader_blur.setIsVertical(false);
+    shader_blur.use();
+    quad.render();
 
-    //// Vertical Blur
-    // this->frameBuffer_blur.texture_2.clear(Color::Transparent);
-    // this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
-    // shader_blur.setTexture(this->frameBuffer_blur.texture_1);
-    // shader_blur.setIsVertical(false);
-    // shader_blur.use();
-    // gl::getResourcesGL()->quad.render();
+    // Vertical Blur
+    this->frameBuffer_blur.texture_2.clear(Color::Transparent);
+    this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
+    shader_blur.setTexture(this->frameBuffer_blur.texture_1);
+    shader_blur.setIsVertical(false);
+    shader_blur.use();
+    quad.render();
 
-    // this->frameBuffer_blur.texture_3.clear(Color::Transparent);
-    // this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_3, 0, 0, 0);
-    // shader_blur.setTexture(this->frameBuffer_blur.texture_2);
-    // shader_blur.setIsVertical(true);
-    // shader_blur.use();
-    // gl::getResourcesGL()->quad.render();
+    this->frameBuffer_blur.texture_3.clear(Color::Transparent);
+    this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_3, 0, 0, 0);
+    shader_blur.setTexture(this->frameBuffer_blur.texture_2);
+    shader_blur.setIsVertical(true);
+    shader_blur.use();
+    quad.render();
 
-    //// Combine Blur
-    // glViewport(0, 0, viewport.x, viewport.y);
+    // Combine Blur
+    glViewport(0, 0, viewport.x, viewport.y);
 
-    // this->frameBuffer.texture_2.clear(Color::Transparent);
-    // this->frameBuffer.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
-    // shader_combine.setTexture1(this->frameBuffer.texture_1);
-    // shader_combine.setTexture2(this->frameBuffer_blur.texture_3);
-    // shader_combine.use();
-    // gl::getResourcesGL()->quad.render();
+    this->frameBuffer.texture_2.clear(Color::Transparent);
+    this->frameBuffer.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
+    shader_combine.setTexture1(this->frameBuffer.texture_1);
+    shader_combine.setTexture2(this->frameBuffer_blur.texture_3);
+    shader_combine.use();
+    quad.render();
 
     this->target->setActive(true);
-    shader_basic.setTexture(this->frameBuffer.texture_1);
+    shader_basic.setTexture(this->frameBuffer.texture_2);
     shader_basic.use();
     quad.render();
 }
@@ -257,7 +264,7 @@ void Renderer::renderSkyBox(gl::Texture &skybox, const Camera &cam, float transp
     shader.setTransparency(transparency);
     shader.setColorExt(Color::Transparent);
     shader.setMatrixM(mat4f(1.0f));
-    shader.setMatrixP(this->transform2D.vp_skybox);
+    shader.setMatrixVP(this->transform2D.vp_skybox);
     shader.setTexture(skybox);
     shader.use();
     sphere.render();
@@ -313,7 +320,7 @@ void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &
 
     const auto model = getModelTransform(center_grid, size_grid, transform2D);
     shader.setMatrixM(model);
-    shader.setMatrixP(transform2D.vp);
+    shader.setMatrixVP(transform2D.vp);
     shader.setColor(color);
     shader.setColorExt(color);
     shader.setTransparency(transparency);
@@ -350,13 +357,13 @@ void Renderer::renderBodies2D(const Environment &env, const Camera &cam, gl::Sha
         if (body_pair != bodies_zip.end())
         {
             auto &&[body, prop] = *body_pair;
-            // auto sun_pos = vp_world * vec4d(body.pos, 1.0);
-            // shader.setSunPosition(vec3f(sun_pos));
+            auto sun_pos = this->transform2D.delta_transform + body.pos;
+            shader.setSunPosition(vec3f(sun_pos));
         }
     }
 
     shader.setFancy(cam.settings.is_render_fancy);
-    shader.setMatrixP(this->transform2D.vp);
+    shader.setMatrixVP(this->transform2D.vp);
     shader.use();
 
     // Render Bodies

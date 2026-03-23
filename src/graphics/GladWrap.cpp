@@ -100,18 +100,12 @@ void FrameBuffer::resize(vec2u size)
         return;
     this->size = size;
     glDeleteFramebuffers(1, &this->fbo_id);
-
     glCreateFramebuffers(1, &this->fbo_id);
 
     this->texture_1.resize(size);
     this->texture_2.resize(size);
     this->texture_3.resize(size);
     this->texture_4.resize(size);
-
-    this->texture_1.setFilter(GL_NEAREST, GL_NEAREST);
-    this->texture_2.setFilter(GL_NEAREST, GL_NEAREST);
-    this->texture_3.setFilter(GL_NEAREST, GL_NEAREST);
-    this->texture_4.setFilter(GL_NEAREST, GL_NEAREST);
 
     glNamedFramebufferTexture(this->fbo_id, GL_COLOR_ATTACHMENT0, this->texture_1.getID(), 0);
     glNamedFramebufferTexture(this->fbo_id, GL_COLOR_ATTACHMENT1, this->texture_2.getID(), 0);
@@ -120,6 +114,13 @@ void FrameBuffer::resize(vec2u size)
 
     GLenum attatchments[4] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3};
     glNamedFramebufferDrawBuffers(this->fbo_id, 4, attatchments);
+
+    // RBO
+    glDeleteRenderbuffers(1, &this->rbo_id);
+    glCreateRenderbuffers(1, &this->rbo_id);
+
+    glNamedRenderbufferStorage(this->rbo_id, GL_DEPTH24_STENCIL8, size.x, size.y);
+    glNamedFramebufferRenderbuffer(this->fbo_id, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, this->rbo_id);
 
     if (glCheckNamedFramebufferStatus(this->fbo_id, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
@@ -231,23 +232,26 @@ ShaderMain::ShaderMain() : Shader("assets/shader.vert", "assets/shader.frag")
     glProgramUniform1i(this->getShaderHandle(), loc, 0);
 }
 
-void ShaderMain::setMatrixP(mat4f view_projection)
+void ShaderMain::setMatrixVP(mat4f view_projection)
 {
-
     glProgramUniformMatrix4fv(this->getShaderHandle(), 0, 1, GL_FALSE, glm::value_ptr(view_projection));
+}
+void ShaderMain::setMatrixV(mat4f view)
+{
+    glProgramUniformMatrix4fv(this->getShaderHandle(), 4, 1, GL_FALSE, glm::value_ptr(view));
 }
 void ShaderMain::setMatrixM(mat4f model)
 {
 
-    glProgramUniformMatrix4fv(this->getShaderHandle(), 4, 1, GL_FALSE, glm::value_ptr(model));
+    glProgramUniformMatrix4fv(this->getShaderHandle(), 8, 1, GL_FALSE, glm::value_ptr(model));
 }
 void ShaderMain::setColor(Color color)
 {
-    glProgramUniform4f(this->getShaderHandle(), 8, color.r, color.g, color.b, color.a);
+    glProgramUniform4f(this->getShaderHandle(), 12, color.r, color.g, color.b, color.a);
 }
 void ShaderMain::setColorExt(Color color)
 {
-    glProgramUniform4f(this->getShaderHandle(), 9, color.r, color.g, color.b, color.a);
+    glProgramUniform4f(this->getShaderHandle(), 13, color.r, color.g, color.b, color.a);
 }
 void ShaderMain::setTexture(Texture &texture)
 {
@@ -255,25 +259,30 @@ void ShaderMain::setTexture(Texture &texture)
 }
 void ShaderMain::setTransparency(float transparency)
 {
-    glProgramUniform1f(this->getShaderHandle(), 10, transparency);
+    glProgramUniform1f(this->getShaderHandle(), 14, transparency);
 }
 void ShaderMain::setBrightness(float brightness)
 {
-    glProgramUniform1f(this->getShaderHandle(), 11, brightness);
+    glProgramUniform1f(this->getShaderHandle(), 15, brightness);
 }
 
 void ShaderMain::setBodyPosition(vec3f pos)
 {
-    glProgramUniform3f(this->getShaderHandle(), 12, pos.x, pos.y, pos.z);
+    glProgramUniform3f(this->getShaderHandle(), 16, pos.x, pos.y, pos.z);
 }
 
 void ShaderMain::setSunPosition(vec3f pos)
 {
-    glProgramUniform3f(this->getShaderHandle(), 13, pos.x, pos.y, pos.z);
+    glProgramUniform3f(this->getShaderHandle(), 17, pos.x, pos.y, pos.z);
 }
 void ShaderMain::setFancy(bool isFancy)
 {
-    glProgramUniform1i(this->getShaderHandle(), 14, isFancy);
+    glProgramUniform1i(this->getShaderHandle(), 18, isFancy);
+}
+
+void ShaderMain::setMatrixNormal(mat4f normal_matrix)
+{
+    glProgramUniformMatrix4fv(this->getShaderHandle(), 19, 1, GL_FALSE, glm::value_ptr(normal_matrix));
 }
 
 ShaderBlur::ShaderBlur() : Shader("assets/shader_basic.vert", "assets/shader_blur.frag")
@@ -319,11 +328,13 @@ void VertexArray::bufferMesh(par_shapes_mesh *mesh)
     glDeleteVertexArrays(1, &this->VAO);
     glDeleteBuffers(1, &this->VBO);
     glDeleteBuffers(1, &this->VBO_TEX);
+    glDeleteBuffers(1, &this->VBO_NORMAL);
     glDeleteBuffers(1, &this->EBO);
 
     glCreateVertexArrays(1, &this->VAO);
     glCreateBuffers(1, &this->VBO);
     glCreateBuffers(1, &this->VBO_TEX);
+    glCreateBuffers(1, &this->VBO_NORMAL);
     glCreateBuffers(1, &this->EBO);
 
     glNamedBufferStorage(this->VBO, mesh->npoints * 3 * sizeof(float), mesh->points, 0);
@@ -347,9 +358,9 @@ void VertexArray::bufferMesh(par_shapes_mesh *mesh)
     if (mesh->normals != nullptr)
     {
 
-        glNamedBufferStorage(this->VBO_TEX, mesh->npoints * 3 * sizeof(float), mesh->normals, 0);
+        glNamedBufferStorage(this->VBO_NORMAL, mesh->npoints * 3 * sizeof(float), mesh->normals, 0);
 
-        glVertexArrayVertexBuffer(this->VAO, 2, this->VBO_TEX, 0, 3 * sizeof(float));
+        glVertexArrayVertexBuffer(this->VAO, 2, this->VBO_NORMAL, 0, 3 * sizeof(float));
 
         glEnableVertexArrayAttrib(this->VAO, 2);
         glVertexArrayAttribFormat(this->VAO, 2, 3, GL_FLOAT, GL_FALSE, 0);
@@ -406,18 +417,18 @@ void VertexArray::bufferSphere(int detail)
     auto *mesh = par_shapes_create_parametric_sphere(detail, detail);
 
     // 1. Rotate 90 degrees around X to bring poles from Z-axis to Y-axis (Up)
-    // float axis[] = {1.0f, 0.0f, 0.0f};
-    // par_shapes_rotate(mesh, PAR_PI / 2.0f, axis);
+    float axis[] = {1.0f, 0.0f, 0.0f};
+    par_shapes_rotate(mesh, PAR_PI, axis);
 
     // 2. Fix UV mapping: par_shapes provides (U=phi, V=theta)
     // Standard mapping expects (U=theta/longitude, V=phi/latitude)
-    // for (int i = 0; i < mesh->npoints; i++)
-    //{
-    //    float u_old = mesh->tcoords[i * 2];
-    //    float v_old = mesh->tcoords[i * 2 + 1];
-    //    mesh->tcoords[i * 2] = v_old;            // U is now around (longitude)
-    //   mesh->tcoords[i * 2 + 1] = 1.0f - u_old; // V is now up/down (latitude), flip so 1.0 is North Pole
-    //}
+    for (int i = 0; i < mesh->npoints; i++)
+    {
+        float u_old = mesh->tcoords[i * 2];
+        float v_old = mesh->tcoords[i * 2 + 1];
+        mesh->tcoords[i * 2] = v_old;            // U is now around (longitude)
+        mesh->tcoords[i * 2 + 1] = 1.0f - u_old; // V is now up/down (latitude), flip so 1.0 is North Pole
+    }
 
     bufferMesh(mesh);
     par_shapes_free_mesh(mesh);
