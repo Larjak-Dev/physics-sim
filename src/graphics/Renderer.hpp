@@ -61,10 +61,11 @@ class Renderer
     void renderBodies(const Environment &env, const Camera &cam, float transarency = 1.0f,
                       Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
 
-    void renderGrid(double exponant, const Camera &cam, float transarency = 1.0f,
-                    Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
+    void renderGrids(double scale, const Camera &cam, float transarency = 1.0f,
+                     Color color_small = Color(1.0f, 1.0f, 1.0f, 1.0f),
+                     Color color_big = Color(0.5f, 0.5f, 0.5f, 1.0f));
 
-    void renderSkyBox(gl::Texture &skybox, const Camera &cam, float transparency = 1.0f);
+    void renderSkyBox(const gl::Texture &skybox, const Camera &cam, float transparency = 1.0f);
 
   private:
     AppContext &context;

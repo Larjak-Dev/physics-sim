@@ -91,7 +91,7 @@ class ShaderMain : public Shader
     void setMatrixM(mat4f model);
     void setColor(Color color);
     void setColorExt(Color color);
-    void setTexture(Texture &texture);
+    void setTexture(const Texture &texture);
     void setTransparency(float transparency);
     void setBrightness(float brightness);
     void setBodyPosition(vec3f pos);

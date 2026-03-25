@@ -23,8 +23,8 @@ class Editor : public Slide
     void tickRightBar(std::shared_ptr<Universe> &universe_main);
 
   private:
-    SceneWidget reviewPanel{this->context};
-    SceneWidget simulator{this->context};
+    SceneWidget review_panel{this->context};
+    SceneWidget simulator_panel{this->context};
 
     PresetType universe_type;
     KinematicConfig kinematic_config;

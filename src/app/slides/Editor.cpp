@@ -17,7 +17,7 @@ Editor::Editor(AppContext &context) : Slide(context)
 void Editor::tickContent()
 {
     ImGui::Begin("Editor", nullptr);
-    this->reviewPanel.update(*this->universe, true);
+    this->review_panel.update(*this->universe, true);
     ImGui::End();
 }
 

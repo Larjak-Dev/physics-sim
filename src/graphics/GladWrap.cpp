@@ -253,7 +253,7 @@ void ShaderMain::setColorExt(Color color)
 {
     glProgramUniform4f(this->getShaderHandle(), 13, color.r, color.g, color.b, color.a);
 }
-void ShaderMain::setTexture(Texture &texture)
+void ShaderMain::setTexture(const Texture &texture)
 {
     texture.bindUnit(0);
 }

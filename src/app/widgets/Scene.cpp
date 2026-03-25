@@ -1,4 +1,5 @@
 #include "Scene.hpp"
+#include "SFML/Graphics/Font.hpp"
 #include "app/AppResources.hpp"
 #include "core/Units.hpp"
 #include "core/universe/Environment.hpp"
@@ -21,18 +22,18 @@ TextureWidget::TextureWidget()
 
 void TextureWidget::update()
 {
-    auto size = ImGui::GetContentRegionAvail();
+    auto size_imgui = ImGui::GetContentRegionAvail();
 
     ImGui::Image(this->texture);
 
-    auto sizeSF =
-        sf::Vector2u(static_cast<unsigned int>(std::floor(size.x)), static_cast<unsigned int>(std::floor(size.y)));
-    if (sizeSF != this->texture_size)
+    auto size_texure = sf::Vector2u(static_cast<unsigned int>(std::floor(size_imgui.x)),
+                                    static_cast<unsigned int>(std::floor(size_imgui.y)));
+    if (size_texure != this->texture_size)
     {
-        bool isSuccesful = this->texture.resize(sizeSF);
+        bool isSuccesful = this->texture.resize(size_texure);
         if (isSuccesful)
         {
-            this->texture_size = sizeSF;
+            this->texture_size = size_texure;
         }
     }
 }
@@ -97,29 +98,31 @@ void SceneWidget::updateInputs(ImVec2 cursor, phys::Universe &universe, sf::Rend
 
             if (std::abs(drag_delta.x) < threshold && std::abs(drag_delta.y) < threshold)
             {
-                vec2f mousePosGlobal = ImGui::GetIO().MousePos;
-                vec2f itemPos = ImGui::GetItemRectMin();
-                auto pos = mousePosGlobal - itemPos;
+                vec2f mouse_pos_global = ImGui::GetIO().MousePos;
+                vec2f item_pos = ImGui::GetItemRectMin();
+
+                auto mouse_pos_item = mouse_pos_global - item_pos;
                 auto env = static_cast<Environment>(*universe.env);
-                selected_body_id = this->renderer.cordOnTargetToBodyInWorld(pos, *universe.camera, env, texture);
+                selected_body_id =
+                    this->renderer.cordOnTargetToBodyInWorld(mouse_pos_item, *universe.camera, env, texture);
             }
         }
 
         // Right click popup
         if (ImGui::IsMouseClicked(ImGuiMouseButton_Right))
         {
-            vec2f mousePosGlobal = ImGui::GetIO().MousePos;
-            vec2f itemPos = ImGui::GetItemRectMin();
-            auto pos = mousePosGlobal - itemPos;
+            vec2f mouse_pos_global = ImGui::GetIO().MousePos;
+            vec2f item_pos = ImGui::GetItemRectMin();
+            auto mouse_pos_item = mouse_pos_global - item_pos;
             auto env = static_cast<Environment>(*universe.env);
-            if (auto body_id = this->renderer.cordOnTargetToBodyInWorld(pos, *universe.camera, env, texture))
+            if (auto body_id = this->renderer.cordOnTargetToBodyInWorld(mouse_pos_item, *universe.camera, env, texture))
             {
                 selected_body_id = body_id;
                 ImGui::OpenPopup("Body");
             }
             else
             {
-                mouse_world = this->renderer.cordOnTargetToWorldCord(pos, *universe.camera, 0, texture);
+                mouse_world = this->renderer.cordOnTargetToWorldCord(mouse_pos_item, *universe.camera, 0, texture);
                 ImGui::OpenPopup("World");
             }
         }
@@ -157,28 +160,50 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         cam.center = body.pos;
     }
 
-    // Render Texture widget
+    /////////////////////
+    /// Rendering Graphics
+    /////////////////////
+
+    const Color BACKGROUND_COLOR = Color::Black;
+    const gl::Texture &SKYBOX = resources_gl.stars;
+    const float SKYBOX_TRANSPARENCY = 0.5f;
+
+    const Color GRID_COLOR_SMALL = Color(0.5f, 0.5, 0.5, 1.0f);
+    const Color GRID_COLOR_BIG = Color(1.0f, 1.0, 1.0, 1.0f);
+    const float GRID_TRANSPARENCY = 1.0f;
+    const float GRID_SCALE = 1.0f;
+
     this->renderer.activate(this->texture);
-    this->renderer.clear(Color::Black);
+    this->renderer.clear(BACKGROUND_COLOR);
     if (cam.settings.is_render_stars)
-        this->renderer.renderSkyBox(resources_gl.stars, *universe.camera, 0.5f);
+        this->renderer.renderSkyBox(SKYBOX, *universe.camera, SKYBOX_TRANSPARENCY);
     if (cam.settings.is_render_grid)
-        this->renderer.renderGrid(1, *universe.camera, 1.0f, Color(0.5, 0.5, 0.5, 1.0));
+        this->renderer.renderGrids(GRID_SCALE, *universe.camera, GRID_TRANSPARENCY, GRID_COLOR_SMALL, GRID_COLOR_BIG);
     this->renderer.renderBodies(static_cast<Environment>(*universe.env), *universe.camera);
     this->renderer.deactivate();
 
-    // Extra
+    ///////////////////
+    // ViewChild (FloatingWindow)
+    //////////////////
+
+    const float VIEWCHILD_WIDTH = 160;
+    const float VIEWCHILD_HEIGHT = 350;
+    const Color VIEWCHILD_BACKGROUND = Color(0.2f, 0.2f, 0.2f, 0.5f);
+    ImFont *VIEWCHILD_FONT = resources_app.font_small;
+
     auto &camera = *universe.camera;
     ImGui::SetCursorPos(cursor);
-    ImGui::BeginChild("Extra", ImVec2(170, 350));
-    float width_c = 160;
+    ImGui::BeginChild("ViewChild", ImVec2(VIEWCHILD_WIDTH, VIEWCHILD_HEIGHT));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(VIEWCHILD_BACKGROUND.r, VIEWCHILD_BACKGROUND.g,
+                                                   VIEWCHILD_BACKGROUND.b, VIEWCHILD_BACKGROUND.a));
+    // Viewport child
 
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.2, 0.2, 0.2, 0.5));
-    // Viewport
+    const float VIEWCHILD_ITEM_WIDTH = 150;
+
     if (ImGui::CollapsingHeader("Viewport"))
     {
-        ImGui::PushFont(resources_app.font_small);
-        ImGui::BeginChild("Viewport", ImVec2(width_c, 115), ImGuiChildFlags_Borders);
+        ImGui::PushFont(VIEWCHILD_FONT);
+        ImGui::BeginChild("Viewport", ImVec2(VIEWCHILD_ITEM_WIDTH, VIEWPORT_HEIGHT), ImGuiChildFlags_Borders);
         ImGui::BeginTable("##ViewTable", 2);
         ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 30);
         ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
@@ -201,11 +226,16 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         ImGui::PopFont();
     }
 
+    //////////////////
+    /// Rendering Child
+    //////////////////
+    const float RENDERING_HEIGHT = 100.0f;
+
     if (ImGui::CollapsingHeader("Rendering"))
     {
 
         ImGui::PushFont(resources_app.font_small);
-        ImGui::BeginChild("Rendering", ImVec2(width_c, 100), ImGuiChildFlags_Borders);
+        ImGui::BeginChild("Rendering", ImVec2(VIEWCHILD_ITEM_WIDTH, RENDERING_HEIGHT), ImGuiChildFlags_Borders);
 
         ImGui::BeginTable("##ViewTable", 2);
         ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 40);
@@ -248,6 +278,10 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
     }
     ImGui::PopStyleColor();
     ImGui::EndChild();
+
+    /////////////////
+    /// Bodies Window
+    /////////////////
 
     ImGui::Begin("Bodies");
     {

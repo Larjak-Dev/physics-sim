@@ -15,7 +15,7 @@ class Simulator : public Slide
     void tickRightBar();
 
   private:
-    SceneWidget reviewPanel{this->context};
+    SceneWidget review_panel{this->context};
     SceneWidget simulator{this->context};
 
     phys::Simulator physic_sim;

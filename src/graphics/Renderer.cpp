@@ -245,7 +245,7 @@ void Renderer::renderBodies(const Environment &env, const Camera &cam, float tra
     quad.render();
 }
 
-void Renderer::renderSkyBox(gl::Texture &skybox, const Camera &cam, float transparency)
+void Renderer::renderSkyBox(const gl::Texture &skybox, const Camera &cam, float transparency)
 {
     assert(this->target);
     auto &target = *this->target;
@@ -271,7 +271,7 @@ void Renderer::renderSkyBox(gl::Texture &skybox, const Camera &cam, float transp
     sphere.render();
 }
 
-void Renderer::renderGrid(double scale, const Camera &cam, float transparency, Color color)
+void Renderer::renderGrids(double scale, const Camera &cam, float transparency, Color color_small, Color color_big)
 {
     assert(this->target);
     auto &target = *this->target;
@@ -282,12 +282,12 @@ void Renderer::renderGrid(double scale, const Camera &cam, float transparency, C
     auto &resources_gl = context.resources_gl;
     auto &shader = resources_gl.mainShader;
 
-    double exponant_1 = std::floor(std::log10(cam.distance * 0.6));
-    double exponant_2 = std::floor(std::log10(cam.distance) + 1);
+    double exponant_1 = std::floor(std::log10(cam.distance * 0.6) * scale);
+    double exponant_2 = std::floor(std::log10(cam.distance) + 1 * scale);
 
     this->frameBuffer.activate(gl::FrameBuffer::Slot_1, gl::FrameBuffer::Slot_2, 0, 0);
-    this->renderGrid2D(exponant_1, cam, shader, Color(0.5f, 0.5f, 0.5f), transparency);
-    this->renderGrid2D(exponant_2, cam, shader, Color(1.0f, 1.0f, 1.0f), transparency);
+    this->renderGrid2D(exponant_1, cam, shader, color_small, transparency);
+    this->renderGrid2D(exponant_2, cam, shader, color_big, transparency);
 
     // Debug
     phys::showDebugF("Exponent: {}", exponant_1);

@@ -15,7 +15,7 @@ void Simulator::tickContent()
     if (!this->physic_sim.isRunningSim())
     {
         ImGui::Begin("Preview", nullptr);
-        this->reviewPanel.update(*this->universe);
+        this->review_panel.update(*this->universe);
         ImGui::End();
     }
     else

@@ -26,8 +26,8 @@ class Player : public Slide
 
     // Recordings
     std::vector<std::pair<std::shared_ptr<phys::Recording>, bool>> recordings;
-    float timeline_float{0.0f};
-    unsigned int timeline_frame_index{0};
+    float timeline_passed_ratio{0.0f}; // The main variable that controls which frame the player is on. Its controlled
+                                       // using an factor from 0.0f to 1.0f
     float timeline_slide_value{0.0f};
 
     void multipleScenes();

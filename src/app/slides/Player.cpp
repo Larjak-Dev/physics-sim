@@ -58,7 +58,7 @@ void Player::multipleScenes()
 
         // Setup Scene widget
         scene_widget.universe->camera = this->scenes_camera;
-        int frame_index = std::floor((frame_amount - 1) * this->timeline_float);
+        int frame_index = std::floor((frame_amount - 1) * this->timeline_passed_ratio);
         scene_widget.universe->env->setEnvironment_safe(frames[frame_index]);
         scene_widget.universe->env->getProperties_ref() = recording->universe->env->getProperties_ref();
 
@@ -84,7 +84,7 @@ void Player::almagationScene()
 
     const auto &frames_first = recording_first->getFrames();
     const float frame_amount_first = frames_first.size();
-    int frame_index_first = std::round((frame_amount_first - 1) * this->timeline_float);
+    int frame_index_first = std::round((frame_amount_first - 1) * this->timeline_passed_ratio);
 
     const auto env_first = recording_first->getFrames()[frame_index_first];
     this->scene_widget_alm.universe->camera = this->scenes_camera;
@@ -101,7 +101,7 @@ void Player::almagationScene()
     {
         this->scene_widget_alm.properties[0].first = 0.8;
         this->scene_widget_alm.properties[0].second = Color(0.5, 0.5, 0.5);
-        const auto time = recording_first->total_time * static_cast<double>(this->timeline_float);
+        const auto time = recording_first->total_time * static_cast<double>(this->timeline_passed_ratio);
         const auto env = static_cast<Environment>(*recording_first->universe->env);
         const auto body_kinematic = phys::calcBody(env.config, time);
 
@@ -129,7 +129,7 @@ void Player::almagationScene()
         const auto &frames = recording->getFrames();
         const float frame_amount = frames.size();
 
-        int frame_index = std::round((frame_amount - 1) * this->timeline_float);
+        int frame_index = std::round((frame_amount - 1) * this->timeline_passed_ratio);
         this->scene_widget_alm.universes[index]->env->setEnvironment_safe(frames[frame_index]);
         this->scene_widget_alm.universes[index]->env->getProperties_ref() = universe->env->getProperties_ref();
 
@@ -141,18 +141,18 @@ void Player::almagationScene()
 
 void Player::tickContent()
 {
-    bool hasSelectedAnything = false;
+    bool has_selected_anything = false;
     for (auto [recording, b] : this->recordings)
     {
         if (b == true)
         {
-            hasSelectedAnything = true;
+            has_selected_anything = true;
             break;
         }
     }
 
     // Players
-    if (hasSelectedAnything == true)
+    if (has_selected_anything == true)
     {
         using namespace ImGui;
         ImGui::Begin("Player");
@@ -191,7 +191,7 @@ void Player::tickContent()
         }
     }
 
-    if (hasSelectedAnything == false)
+    if (has_selected_anything == false)
     {
         // Preview
         ImGui::Begin("Preview", nullptr);
@@ -225,7 +225,7 @@ void Player::stepTimeline(int i)
     const auto &first_item = std::ranges::find_if(this->recordings, [](const auto &item) { return item.second; });
     const auto &recording = first_item->first;
     auto current_frame_index =
-        static_cast<unsigned int>(std::round(this->timeline_float * (recording->getFrames().size() - 1)));
+        static_cast<unsigned int>(std::round(this->timeline_passed_ratio * (recording->getFrames().size() - 1)));
     auto index_new = current_frame_index + i;
     setFrameIndex(index_new);
 }
@@ -237,20 +237,20 @@ void Player::saveAsExcel()
     namespace fs = std::filesystem;
     using namespace OpenXLSX;
 
-    auto forceType = phys::getForceStr(this->universe->physicConfig.force_config.force_type);
+    auto force_type = phys::getForceStr(this->universe->physicConfig.force_config.force_type);
 
     // Ensure directory exists
     fs::create_directories("Excel_Output");
 
-    std::string doc_path = std::format("Excel_Output/{}.xlsx", forceType);
+    std::string doc_path = std::format("Excel_Output/{}.xlsx", force_type);
     if (fs::exists(doc_path))
     {
         int count = 1;
-        while (fs::exists(std::format("Excel_Output/{}_{}.xlsx", forceType, count)))
+        while (fs::exists(std::format("Excel_Output/{}_{}.xlsx", force_type, count)))
         {
             count++;
         }
-        doc_path = std::format("Excel_Output/{}_{}.xlsx", forceType, count);
+        doc_path = std::format("Excel_Output/{}_{}.xlsx", force_type, count);
     }
     last_save = doc_path;
 
@@ -258,7 +258,7 @@ void Player::saveAsExcel()
     doc.create(doc_path);
     auto wks = doc.workbook().worksheet("Sheet1");
 
-    int index_X = 1;
+    int x_index = 1;
     for (auto &&[recording, b] : this->recordings)
     {
         if (b)
@@ -266,37 +266,39 @@ void Player::saveAsExcel()
             auto environment = static_cast<Environment>(*recording->universe->env);
             auto universe_config = environment.config;
 
-            // Rows 1
-            wks.cell(1, index_X).value() =
+            // Row 1
+            wks.cell(1, x_index).value() =
                 phys::getStepMetodStr(recording->universe->physicConfig.step_config.step_type);
-            wks.cell(1, index_X + 1).value() =
+            wks.cell(1, x_index + 1).value() =
                 std::format("Delta Time: {}", recording->universe->physicConfig.step_config.delta_time);
 
-            // Row 2
-            int start_y = 3;
-            wks.cell(start_y, index_X).value() = "Time:";
-            wks.cell(start_y, index_X + 1).value() = "Index:";
-            wks.cell(start_y, index_X + 2).value() = "X (Kinematic):";
-            wks.cell(start_y, index_X + 3).value() = "Y (Kinematic):";
-            wks.cell(start_y, index_X + 4).value() = "Z (Kinematic):";
-            wks.cell(start_y, index_X + 5).value() = "X:";
-            wks.cell(start_y, index_X + 6).value() = "Y:";
-            wks.cell(start_y, index_X + 7).value() = "Z:";
-            wks.cell(start_y, index_X + 8).value() = "Delta Magnitude:";
-            wks.cell(start_y, index_X + 9).value() = "Velocity (Kinematic):";
-            wks.cell(start_y, index_X + 10).value() = "Velocity:";
-            wks.cell(start_y, index_X + 11).value() = "Delta Velocity:";
-            wks.cell(start_y, index_X + 12).value() = "Energy Total (Kinematic):";
-            wks.cell(start_y, index_X + 13).value() = "Energy Total:";
-            wks.cell(start_y, index_X + 14).value() = "Delta Energy:";
-            wks.cell(start_y, index_X + 15).value() = "Delta Energy (Abs):";
-            wks.cell(start_y, index_X + 16).value() = "####";
+            // DATA Labels
+            int y_label = 3;
+            wks.cell(y_label, x_index).value() = "Time:";
+            wks.cell(y_label, x_index + 1).value() = "Index:";
+            wks.cell(y_label, x_index + 2).value() = "X (Kinematic):";
+            wks.cell(y_label, x_index + 3).value() = "Y (Kinematic):";
+            wks.cell(y_label, x_index + 4).value() = "Z (Kinematic):";
+            wks.cell(y_label, x_index + 5).value() = "X:";
+            wks.cell(y_label, x_index + 6).value() = "Y:";
+            wks.cell(y_label, x_index + 7).value() = "Z:";
+            wks.cell(y_label, x_index + 8).value() = "Delta Magnitude:";
+            wks.cell(y_label, x_index + 9).value() = "Velocity (Kinematic):";
+            wks.cell(y_label, x_index + 10).value() = "Velocity:";
+            wks.cell(y_label, x_index + 11).value() = "Delta Velocity:";
+            wks.cell(y_label, x_index + 12).value() = "Energy Total (Kinematic):";
+            wks.cell(y_label, x_index + 13).value() = "Energy Total:";
+            wks.cell(y_label, x_index + 14).value() = "Delta Energy:";
+            wks.cell(y_label, x_index + 15).value() = "Delta Energy (Abs):";
+            wks.cell(y_label, x_index + 16).value() = "####";
+
+            // DATA Values
 
             double magnitude_delta_sum = 0.0f;
             double velocity_delta_sum = 0.0f;
             double energy_delta_sum = 0.0f;
 
-            int startY = start_y + 1;
+            int y_values = y_label + 1;
             const auto physic_functions = phys::PhysicFunctions(recording->universe->physicConfig);
             const auto &frames = recording->getFrames();
             for (auto &&[i, env] : std::views::enumerate(frames))
@@ -363,23 +365,23 @@ void Player::saveAsExcel()
                 energy_t_delta = energy_t - energy_t_k;
                 energy_t_delta_abs = glm::abs(energy_t_delta);
 
-                wks.cell(startY + i, index_X).value() = time;
-                wks.cell(startY + i, index_X + 1).value() = index;
-                wks.cell(startY + i, index_X + 2).value() = x_k;
-                wks.cell(startY + i, index_X + 3).value() = y_k;
-                wks.cell(startY + i, index_X + 4).value() = z_k;
-                wks.cell(startY + i, index_X + 5).value() = x;
-                wks.cell(startY + i, index_X + 6).value() = y;
-                wks.cell(startY + i, index_X + 7).value() = z;
-                wks.cell(startY + i, index_X + 8).value() = magnitude_delta;
-                wks.cell(startY + i, index_X + 9).value() = velocity_k;
-                wks.cell(startY + i, index_X + 10).value() = velocity;
-                wks.cell(startY + i, index_X + 11).value() = velocity_delta;
-                wks.cell(startY + i, index_X + 12).value() = energy_t_k;
-                wks.cell(startY + i, index_X + 13).value() = energy_t;
-                wks.cell(startY + i, index_X + 14).value() = energy_t_delta;
-                wks.cell(startY + i, index_X + 15).value() = energy_t_delta_abs;
-                wks.cell(startY + i, index_X + 16).value() = "####";
+                wks.cell(y_values + i, x_index).value() = time;
+                wks.cell(y_values + i, x_index + 1).value() = index;
+                wks.cell(y_values + i, x_index + 2).value() = x_k;
+                wks.cell(y_values + i, x_index + 3).value() = y_k;
+                wks.cell(y_values + i, x_index + 4).value() = z_k;
+                wks.cell(y_values + i, x_index + 5).value() = x;
+                wks.cell(y_values + i, x_index + 6).value() = y;
+                wks.cell(y_values + i, x_index + 7).value() = z;
+                wks.cell(y_values + i, x_index + 8).value() = magnitude_delta;
+                wks.cell(y_values + i, x_index + 9).value() = velocity_k;
+                wks.cell(y_values + i, x_index + 10).value() = velocity;
+                wks.cell(y_values + i, x_index + 11).value() = velocity_delta;
+                wks.cell(y_values + i, x_index + 12).value() = energy_t_k;
+                wks.cell(y_values + i, x_index + 13).value() = energy_t;
+                wks.cell(y_values + i, x_index + 14).value() = energy_t_delta;
+                wks.cell(y_values + i, x_index + 15).value() = energy_t_delta_abs;
+                wks.cell(y_values + i, x_index + 16).value() = "####";
 
                 magnitude_delta_sum += magnitude_delta;
                 velocity_delta_sum += velocity_delta;
@@ -391,14 +393,14 @@ void Player::saveAsExcel()
             const auto energy_delta_average = energy_delta_sum / recording->getFrames().size();
 
             // Averages
-            wks.cell(1, index_X + 7).value() = "Magnitude Delta Average: ";
-            wks.cell(1, index_X + 8).value() = magnitude_delta_average;
-            wks.cell(1, index_X + 10).value() = "Velocity Delta Average";
-            wks.cell(1, index_X + 11).value() = velocity_delta_average;
-            wks.cell(1, index_X + 14).value() = "Energy Delta Average";
-            wks.cell(1, index_X + 15).value() = energy_delta_average;
+            wks.cell(1, x_index + 7).value() = "Magnitude Delta Average: ";
+            wks.cell(1, x_index + 8).value() = magnitude_delta_average;
+            wks.cell(1, x_index + 10).value() = "Velocity Delta Average";
+            wks.cell(1, x_index + 11).value() = velocity_delta_average;
+            wks.cell(1, x_index + 14).value() = "Energy Delta Average";
+            wks.cell(1, x_index + 15).value() = energy_delta_average;
 
-            index_X += 17;
+            x_index += 17;
         }
     }
 
@@ -485,6 +487,8 @@ void Player::tickRightBar()
             ImGui::EndDisabled();
         }
     }
+
+    // Clear Recordings
     ImGui::EndChild();
     if (ImGui::Button("Clear Recordings"))
     {
@@ -492,6 +496,7 @@ void Player::tickRightBar()
         this->recordings.clear();
     }
 
+    // Save Excel
     if (ImGui::Button("Save Excel"))
     {
         this->saveAsExcel();
@@ -501,6 +506,7 @@ void Player::tickRightBar()
     ImGui::End();
 }
 
+// Sets the timeline float to an specific frame index of the first selected recording.
 void Player::setFrameIndex(unsigned int i)
 {
 
@@ -511,6 +517,5 @@ void Player::setFrameIndex(unsigned int i)
     if (i >= frames_size)
         return;
 
-    this->timeline_float = static_cast<float>(i) / recording->getFrames().size();
-    this->timeline_frame_index = i;
+    this->timeline_passed_ratio = static_cast<float>(i) / recording->getFrames().size();
 }
