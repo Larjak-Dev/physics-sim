@@ -63,6 +63,7 @@ void SceneWidget::updateInputs(ImVec2 cursor, phys::Universe &universe, sf::Rend
             auto delta_cam = delta_crossX + delta_crossY;
 
             universe.camera->center += delta_cam;
+            universe.camera->settings.locked_body_id = 0;
         }
         if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle))
         {
@@ -148,7 +149,13 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         this->texture.clear();
     updateInputs(cursor, universe, texture, this->selected_body_id, this->click_pos_world);
 
-    auto cam = *universe.camera;
+    auto &cam = *universe.camera;
+    if (cam.settings.locked_body_id)
+    {
+        auto body_pair = universe.env->getBody(cam.settings.locked_body_id);
+        auto &body = body_pair.first;
+        cam.center = body.pos;
+    }
 
     // Render Texture widget
     this->renderer.activate(this->texture);
@@ -176,14 +183,18 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 30);
         ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
 
-        drawTableInputD("X:", &universe.camera->center.x);
-        drawTableInputD("Y:", &universe.camera->center.y);
-        drawTableInputD("Z:", &universe.camera->center.z);
-        drawTableInputD("Zoom:", &universe.camera->distance);
+        drawTableLabel("X:");
+        ImGui::InputDouble("##X", &universe.camera->center.x, 0.0, 0.0, "%.2e");
+        drawTableLabel("Y:");
+        ImGui::InputDouble("##Y", &universe.camera->center.y, 0.0, 0.0, "%.2e");
+        drawTableLabel("Z:");
+        ImGui::InputDouble("##Z", &universe.camera->center.z, 0.0, 0.0, "%.2e");
+        drawTableLabel("Zoom:");
+        ImGui::InputDouble("##zoom", &universe.camera->distance, 0.0, 0.0, "%.2e");
         drawTableLabel("Rotatio_X");
-        ImGui::InputDouble("##rotX", &universe.camera->x_angle);
+        ImGui::InputDouble("##rotX", &universe.camera->x_angle, 0.0, 0.0);
         drawTableLabel("Rotatio_Z");
-        ImGui::InputDouble("##rotZ", &universe.camera->z_angle);
+        ImGui::InputDouble("##rotZ", &universe.camera->z_angle, 0.0, 0.0);
 
         ImGui::EndTable();
         ImGui::EndChild();
@@ -259,6 +270,7 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
                 {
                     camera.center = body.pos;
                     camera.distance = prop.size.x * 3.0;
+                    camera.settings.locked_body_id = body.id;
                 }
             }
             ImGui::EndTable();
@@ -303,6 +315,12 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
                     PropertyRow("Vel X:", "##vx", body_selected.vel.x);
                     PropertyRow("Vel Y:", "##vy", body_selected.vel.y);
                     PropertyRow("Vel Z:", "##vz", body_selected.vel.z);
+
+                    drawTableLabel("Lock camera: ");
+                    if (ImGui::Button("Lock"))
+                    {
+                        cam.settings.locked_body_id = this->selected_body_id;
+                    }
 
                     ImGui::EndTable();
                 }
@@ -369,6 +387,15 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
                     ImGui::Text("Size Z:");
                     ImGui::SameLine();
                     ImGui::InputDouble("##z_size", &editing_property.size.z, 0.0, 0.0, "%.2e");
+                    ImGui::Text("Tilt:");
+                    ImGui::SameLine();
+                    ImGui::InputFloat("##tilt", &editing_property.tilt, 0.0, 0.0, "%.2e");
+                    ImGui::Text("Rotation:");
+                    ImGui::SameLine();
+                    ImGui::InputFloat("##rotation_start", &editing_property.rotation_start, 0.0, 0.0, "%.2e");
+                    ImGui::Text("Rotation Speed:");
+                    ImGui::SameLine();
+                    ImGui::InputFloat("##rotation_speed)", &editing_property.rotation_velocity, 0.0, 0.0, "%.2e");
                 }
                 if (ImGui::Button("Configure"))
                 {

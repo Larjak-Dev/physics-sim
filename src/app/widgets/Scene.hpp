@@ -63,4 +63,9 @@ class AlmagationWidget : public UniverseWidget
     phys::vec3d click_pos_world{};
 };
 
+class AnalyzeWidget : public SceneWidget
+{
+  public:
+};
+
 } // namespace phys::app

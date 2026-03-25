@@ -6,6 +6,8 @@ namespace phys
 
 struct CameraSettings
 {
+    unsigned int locked_body_id{0};
+
     bool is_fixed_body_size{false};
     double fixed_size{1.2};
 

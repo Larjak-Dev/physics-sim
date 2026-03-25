@@ -32,6 +32,9 @@ struct Property
     gl::Texture *texture{nullptr};
     float brightness{0.0};
     std::string name{"Unknown"};
+    float tilt{0.0f};
+    float rotation_start{0.0f};
+    float rotation_velocity{0.0f};
 };
 
 using Properties = std::vector<Property>;

@@ -266,6 +266,7 @@ void Renderer::renderSkyBox(gl::Texture &skybox, const Camera &cam, float transp
     shader.setMatrixM(mat4f(1.0f));
     shader.setMatrixVP(this->transform2D.vp_skybox);
     shader.setTexture(skybox);
+    shader.setFancy(false);
     shader.use();
     sphere.render();
 }
@@ -292,14 +293,27 @@ void Renderer::renderGrid(double scale, const Camera &cam, float transparency, C
     phys::showDebugF("Exponent: {}", exponant_1);
 }
 
-mat4f getModelTransform(const vec4d pos_world, const vec4d size_world, const Transform2D transform)
+struct ModelTransform
+{
+    mat4f model_transform;
+    mat4f normal_transform;
+};
+
+ModelTransform getModelTransform(const vec4d pos_world, const vec4d size_world, float tilt, float rotation,
+                                 const Transform2D transform)
 {
 
     auto pos_scene = vec4d(transform.delta_transform, 0.0) + pos_world;
     mat4f model = mat4f(1.0f);
     model = glm::translate(model, vec3f(pos_scene));
     model = glm::scale(model, vec3f(size_world));
-    return model;
+    model = glm::rotate(model, tilt, vec3f(0.0f, 1.0f, 0.0f));
+    model = glm::rotate(model, rotation, vec3f(0.0f, 0.0f, 1.0f));
+
+    mat4f normal = mat4f(1.0f);
+    normal = glm::rotate(normal, tilt, vec3f(0.0f, 1.0f, 0.0f));
+    normal = glm::rotate(normal, rotation, vec3f(0.0f, 0.0f, 1.0f));
+    return {model, normal};
 }
 
 void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &shader, Color color, float transparency)
@@ -318,8 +332,9 @@ void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &
     const auto size_grid =
         vec4d{scale_grid * amount_grid / 2.0, scale_grid * amount_grid / 2.0, scale_grid * amount_grid / 2.0, 0.0};
 
-    const auto model = getModelTransform(center_grid, size_grid, transform2D);
-    shader.setMatrixM(model);
+    const auto transform = getModelTransform(center_grid, size_grid, 0.0f, 0.0f, transform2D);
+    shader.setMatrixM(transform.model_transform);
+    shader.setMatrixNormal(transform.normal_transform);
     shader.setMatrixVP(transform2D.vp);
     shader.setColor(color);
     shader.setColorExt(color);
@@ -381,8 +396,11 @@ void Renderer::renderBodies2D(const Environment &env, const Camera &cam, gl::Sha
             size_world = vec4d(property.size, 0.0f) * cam.settings.body_scale;
         }
 
-        auto model = getModelTransform(pos_world, size_world, transform2D);
-        shader.setMatrixM(model);
+        auto rotation = property.rotation_start + property.rotation_velocity * env.passed_time;
+
+        auto transform = getModelTransform(pos_world, size_world, property.tilt, rotation, transform2D);
+        shader.setMatrixM(transform.model_transform);
+        shader.setMatrixNormal(transform.normal_transform);
         shader.setBrightness(property.brightness);
 
         // Color + Texture

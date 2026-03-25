@@ -141,6 +141,7 @@ class VertexArray
 
     void render();
     void renderLines();
+    void renderPoints();
 
   private:
     uint32_t VAO{0}, VBO{0}, EBO{0}, VBO_TEX{0}, VBO_NORMAL{0};

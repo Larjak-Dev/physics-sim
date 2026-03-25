@@ -26,10 +26,10 @@ float easeOutQuint(float x) {
 
 void main()
 {
-    vec4 vertex_pos = u_M * vec4(aPos, 1.0);
+    vec3 vertex_pos = vec3(u_M * vec4(aPos, 1.0));
+    vec3 normal = vec3(u_normal_matrix * vec4(aNormal, 1.0));
 
-
-    gl_Position = u_VP * vertex_pos;
+    gl_Position = u_VP * vec4(vertex_pos,1.0);
     
     vec3 color = (vec3(u_color_ext) * u_color_ext.a) + (vec3(u_color) * (1.0-u_color_ext.a));
     vertexColor = vec4(color, u_color.a * u_transparency);
@@ -41,8 +41,8 @@ void main()
     }
 
     if(u_brightness < 0.8) {
-        vec3 normal_sun = normalize(u_sun_pos - vec3(vertex_pos));
-        float similarity = dot(aNormal, normal_sun);
+        vec3 sun_dir = normalize(u_sun_pos - vertex_pos);
+        float similarity = dot(normal, sun_dir);
 
         float strength = easeOutQuint(max(similarity, 0.0)); //0.0-1.0
 

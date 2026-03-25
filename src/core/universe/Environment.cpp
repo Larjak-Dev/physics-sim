@@ -96,6 +96,9 @@ bool EnvironmentActive::setBody(uint16_t bodyId, std::pair<Body, Property> pair)
         auto &property_ = pair.second;
         property.color = property_.color;
         property.size = property_.size;
+        property.tilt = property_.tilt;
+        property.rotation_start = property_.rotation_start;
+        property.rotation_velocity = property_.rotation_velocity;
 
         return true;
     }

@@ -6,9 +6,11 @@
 #include <filesystem>
 #include <format>
 #include <fstream>
+#include <glm/ext/scalar_constants.hpp>
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <regex>
+#include <variant>
 
 using namespace phys;
 using json = nlohmann::json;
@@ -235,6 +237,31 @@ PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)
         }
     }
 
+    // Rot. Rate (rad/s)        = 0.00007292115
+    size_t start_ro = result.find("Rot");
+    size_t end_ro = result.find("Surface");
+    if (start_ro == std::string::npos)
+    {
+        start_ro = result.find("rot");
+        end_ro = result.find("Mean");
+    }
+    const std::string str_ro = result.substr(start_ro, end_ro);
+
+    const auto regex_ro_begin = std::sregex_iterator(str_ro.begin(), str_ro.end(), regex_number);
+    const auto regex_ro_end = std::sregex_iterator();
+
+    const auto ROTATION = *regex_ro_begin;
+
+    // Obliquity to orbit, deg  = 23.4392911
+    const size_t start_tilt = result.find("Obliquity");
+    const size_t end_tilt = result.find("Sidereal");
+    const std::string tilt_str = result.substr(start_tilt, end_tilt);
+
+    const auto regex_tilt_begin = std::sregex_iterator(tilt_str.begin(), tilt_str.end(), regex_number);
+    const auto regex_tilt_end = std::sregex_iterator();
+
+    const auto TILT = *regex_tilt_begin;
+
     /////Cordinates and Velocity
     const size_t start = result.find("$$SOE");
     const size_t end = result.find("$$EOE");
@@ -309,6 +336,9 @@ PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)
     double radius = std::stod(RADIUS.str());
     radius *= 1000.0;
 
+    float rotation_speed = std::stof(ROTATION.str());
+    float tilt = glm::pi<float>() * std::stof(TILT.str()) / 180.0f;
+
     // Results
     Body body_1;
     body_1.is_locked = false;
@@ -328,6 +358,8 @@ PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)
     prop.texture = planet.texture;
     prop.brightness = planet.brightness;
     prop.name = planet.name;
+    prop.rotation_velocity = rotation_speed;
+    prop.tilt = tilt;
 
     return {body_1, body_2, prop};
 }
