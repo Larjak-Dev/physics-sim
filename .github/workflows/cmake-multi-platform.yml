@@ -72,7 +72,12 @@ jobs:
           libxcursor-dev \
           libxi-dev \
           libudev-dev \
-          libgl1-mesa-dev
+          libgl1-mesa-dev \
+          libfreetype6-dev \
+          libflac-dev \
+          libvorbis-dev \
+          libopenal-dev \
+          libpthread-stubs0-dev
 
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
