@@ -1,5 +1,8 @@
 #pragma once
 
+// Credits: Original utility structure and histogram logic inspired by Doug Binks.
+// Extended and modernized with PropertyGrid and ImGui Table support.
+
 #include <IconsFontAwesome.h>
 #include <cmath>
 #include <cstdio>

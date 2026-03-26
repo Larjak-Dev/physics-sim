@@ -13,13 +13,15 @@ Features:
 * Multi threaded
 
 External Libraries:
-* SFML https://github.com/SFML/SFML
-* ImGui https://github.com/ocornut/imgui 
-* imgui-sfml https://github.com/SFML/imgui-sfml
-* glad https://github.com/Dav1dde/glad
-* glm https://github.com/g-truc/glm
-* OpenXLSX https://github.com/troldal/OpenXLSX
-
+* SFML https://github.com/SFML/SFML is under zlib License
+* ImGui https://github.com/ocornut/imgui is under MIT license
+* imgui-sfml https://github.com/SFML/imgui-sfml is under MIT license
+* glad https://github.com/Dav1dde/glad is under is under MIT license
+* glm https://github.com/g-truc/glm is under MIT license
+* OpenXLSX https://github.com/troldal/OpenXLSX  is under BSD 3-Clause "New" or "Revised" License
+* Par (Shapes) https://github.com/prideout/par/tree/master  is under MIT License
+* IconsFontAwesome https://github.com/juliettef/IconFontCppHeaders is under zlib License
+* KHR https://github.com/KhronosGroup/EGL-Registry is under MIT License
 
 Project Details:
 * Programmed in C++20 / 23 (As much as i can)
