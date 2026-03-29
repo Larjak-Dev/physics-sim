@@ -242,7 +242,7 @@ PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)
     size_t end_ro = result.find("Surface");
     if (start_ro == std::string::npos)
     {
-        start_ro = result.find("rot");
+        start_ro = result.find("rate");
         end_ro = result.find("Mean");
     }
     const std::string str_ro = result.substr(start_ro, end_ro);

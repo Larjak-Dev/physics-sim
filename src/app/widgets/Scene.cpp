@@ -199,6 +199,7 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
     // Viewport child
 
     const float VIEWCHILD_ITEM_WIDTH = 150;
+    const float VIEWPORT_HEIGHT = 100;
 
     if (ImGui::CollapsingHeader("Viewport"))
     {
@@ -376,7 +377,9 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
             {
             }
 
-            if (ImGui::BeginPopupModal("Edit_Pop"))
+            ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+            ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+            if (ImGui::BeginPopupModal("Edit_Pop", NULL, ImGuiWindowFlags_AlwaysAutoResize))
             {
                 auto &editing_body = editing_pair.first;
 
@@ -459,13 +462,10 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
             };
 
             // SUMMON
-            if (ImGui::BeginPopupModal("Summon"))
+            ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+            ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+            if (ImGui::BeginPopupModal("Summon", NULL, ImGuiWindowFlags_AlwaysAutoResize))
             {
-                auto avail = ImGui::GetContentRegionAvail();
-                float height = ImGui::GetFrameHeight();
-
-                auto child_size = ImVec2(avail.x, avail.y - height - 5);
-                ImGui::BeginChild("Inputs", child_size);
 
                 auto &editing_body = editing_pair.first;
                 ImGui::Text("Mass:");
@@ -509,8 +509,6 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
                     ImGui::SameLine();
                     ImGui::InputDouble("##z_size", &editing_property.size.z, 0.0, 0.0, "%.2e");
                 }
-
-                ImGui::EndChild();
 
                 if (ImGui::Button("Confirm"))
                 {
