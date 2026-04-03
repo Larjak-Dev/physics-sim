@@ -11,6 +11,10 @@ Features:
 * Export selected recordings into an Excel file.
 * Automatically calculates delta position and total energy between simulated body and calculated kinematic body. (Only if you use one of the environment presets)
 * Multi threaded
+* Automatically import and simulate the solar system from NASA JPL Horizons API
+
+<img width="1261" height="1390" alt="image" src="https://github.com/user-attachments/assets/e86d75d8-fb2e-45cf-a9fe-47c1c86f4a29" />
+
 
 External Libraries:
 * SFML https://github.com/SFML/SFML is under zlib License
@@ -47,4 +51,3 @@ Build for c++ cmake console environment:
 6. cmake --build .
 
 Project is built using CMake and the correct libraries are automatically fetched, built and statically linked when running Cmake. The reason it's statically linked is because i had issues with SFML linking with incompatible shared libraries when building in an MinGW environment. 
-
