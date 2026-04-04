@@ -70,12 +70,15 @@ FetchContent_MakeAvailable(json)
 message(STATUS "Fetching cpr")
 set(BUILD_CPR_TESTS OFF CACHE INTERNAL "")
 set(CPR_CURL_USE_LIBPSL OFF CACHE INTERNAL "")
+set(CURL_USE_LIBPSL OFF CACHE INTERNAL "") # Explicitly for curl
 FetchContent_MakeAvailable(cpr)
 #OpenXLSX
 message(STATUS "Fetching OpenXLSX")
+set(OPENXLSX_BUILD_TESTS OFF CACHE INTERNAL "")
 FetchContent_MakeAvailable(OpenXLSX)
 #glm
 message(STATUS "Fetching glm")
+set(GLM_BUILD_TESTS OFF CACHE INTERNAL "")
 FetchContent_MakeAvailable(glm)
 #imgui
 message(STATUS "Fetching imgui...")
@@ -83,6 +86,8 @@ set(IMGUI_USE_DARK_THEME ON CACHE BOOL "Use Dark Spectrum Theme" FORCE)
 FetchContent_MakeAvailable(imgui)
 #SFML
 message(STATUS "Fetching SFML...")
+set(SFML_BUILD_TEST_SUITE OFF CACHE INTERNAL "")
+set(SFML_BUILD_NETWORK FALSE CACHE INTERNAL "")
 FetchContent_MakeAvailable(SFML)
 #imgui-sfml
 set(IMGUI_DIR ${imgui_SOURCE_DIR})
