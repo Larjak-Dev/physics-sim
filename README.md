@@ -2,16 +2,16 @@ Physics-Sim is an GUI based application used to simulate, visualize and compare 
 
 Features:
 * Numerical intergrations: Semi-implicit Euler, Verlet and Rk4.
-* Standard Environments: Free Fall and Circular Orbit.
+* Preset Environments: Free Fall and Circular Orbit.
 * Simulate and compare any delta time.
 * Simulate in realtime.
 * Simulate the entire simulation in to an recording.
-* View the recording frame by frame using the Player.
+* View the recording frame by frame using the Playback.
 * Compare multiple selected recordings side by side.
 * Export selected recordings into an Excel file.
-* Automatically calculates delta position and total energy between simulated body and calculated kinematic body. (Only if you use one of the environment presets)
-* Multi threaded
-* Automatically import and simulate the solar system from NASA JPL Horizons API
+* Automatically calculates delta position and total energy between simulated body and calculated kinematic body. (Only works if you use one of the kinematic supported environment presets: Free fall or Circular orbit)
+* Multi threaded (Seperated window and simulating thread)
+* Automatically import, cache and simulate the solar system from NASA JPL Horizons API.
 
 <img width="1261" height="1390" alt="screenshot-2026-04-04_02-42-46" src="https://github.com/user-attachments/assets/1993f8dc-6e91-4eff-bbe4-ae10657f30a1" />
 
@@ -28,6 +28,7 @@ External Libraries:
 * Par (Shapes) https://github.com/prideout/par/tree/master  is under MIT License
 * IconsFontAwesome https://github.com/juliettef/IconFontCppHeaders is under zlib License
 * KHR https://github.com/KhronosGroup/EGL-Registry is under MIT License
+* This project uses the Horizons on-line solar system data service, provided by the Solar System Dynamics Group of the Jet Propulsion Laboratory. ![NASA](https://img.shields.io/badge/Data%20Source-NASA%20JPL-blue)
 
 Project Details:
 * Programmed in C++20 / 23 (As much as i can)
