@@ -21,6 +21,8 @@ class Simulator : public Slide
     phys::Simulator physic_sim;
     std::shared_ptr<phys::Universe> universe_sim;
 
+    double sim_speed{1.0f};
+
     void showConfig();
 };
 } // namespace phys::app

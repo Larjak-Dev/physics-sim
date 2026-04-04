@@ -128,7 +128,7 @@ void Simulator::startSim(std::shared_ptr<Universe> universe)
                 const auto env_new = physic_functions.step(env_copy, delta_time, step_buffer);
                 universe->env->setEnvironment_safe(env_new);
 
-                std::this_thread::sleep_for(std::chrono::duration<double>(delta_time / speed));
+                std::this_thread::sleep_for(std::chrono::duration<double>(delta_time / (speed * this->speed)));
             }
 
             this->stop_sim = false;

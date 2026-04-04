@@ -119,8 +119,8 @@ void FrameBuffer::resize(vec2u size)
     glDeleteRenderbuffers(1, &this->rbo_id);
     glCreateRenderbuffers(1, &this->rbo_id);
 
-    glNamedRenderbufferStorage(this->rbo_id, GL_DEPTH24_STENCIL8, size.x, size.y);
-    glNamedFramebufferRenderbuffer(this->fbo_id, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, this->rbo_id);
+    glNamedRenderbufferStorage(this->rbo_id, GL_DEPTH_COMPONENT32F, size.x, size.y);
+    glNamedFramebufferRenderbuffer(this->fbo_id, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->rbo_id);
 
     if (glCheckNamedFramebufferStatus(this->fbo_id, GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
     {
@@ -134,6 +134,21 @@ void FrameBuffer::activate(uint32_t attachment_1, uint32_t attachment_2, uint32_
     GLenum attatchments[4] = {attachment_1, attachment_2, attachment_3, attachment_4};
     glNamedFramebufferDrawBuffers(this->fbo_id, 4, attatchments);
     glBindFramebuffer(GL_FRAMEBUFFER, this->fbo_id);
+}
+
+void FrameBuffer::activate_zdepth()
+{
+    glEnable(GL_DEPTH_TEST);
+    glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+    glDepthFunc(GL_GREATER);
+    glEnable(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
+}
+
+void FrameBuffer::deactive_zdepth()
+{
+    glDisable(GL_DEPTH_TEST);
 }
 
 GLuint compileShader(GLenum type, const std::string &source)
@@ -228,8 +243,9 @@ void ShaderBasic::setTexture(Texture &texture)
 
 ShaderMain::ShaderMain() : Shader("assets/shader.vert", "assets/shader.frag")
 {
-    GLint loc = glGetUniformLocation(this->getShaderHandle(), "ourTexture");
-    glProgramUniform1i(this->getShaderHandle(), loc, 0);
+    glProgramUniform1i(this->getShaderHandle(), 30, 0);
+    glProgramUniform1i(this->getShaderHandle(), 31, 1);
+    glProgramUniform1i(this->getShaderHandle(), 33, 2);
 }
 
 void ShaderMain::setMatrixVP(mat4f view_projection)
@@ -257,6 +273,27 @@ void ShaderMain::setTexture(const Texture &texture)
 {
     texture.bindUnit(0);
 }
+
+void ShaderMain::setTextureDarkSide(const Texture &texture)
+{
+    texture.bindUnit(1);
+}
+
+void ShaderMain::setHasDarkSide(bool hasDarkSide)
+{
+    glProgramUniform1i(this->getShaderHandle(), 32, hasDarkSide);
+}
+
+void ShaderMain::setTextureAtmosphere(const Texture &texture)
+{
+    texture.bindUnit(2);
+}
+
+void ShaderMain::setHasAtmosphere(bool hasAtmosphere)
+{
+    glProgramUniform1i(this->getShaderHandle(), 34, hasAtmosphere);
+}
+
 void ShaderMain::setTransparency(float transparency)
 {
     glProgramUniform1f(this->getShaderHandle(), 14, transparency);
@@ -416,11 +453,11 @@ void VertexArray::bufferSphere(int detail)
 {
     auto *mesh = par_shapes_create_parametric_sphere(detail, detail);
 
-    // 1. Rotate 90 degrees around X to bring poles from Z-axis to Y-axis (Up)
+    // Rotate 90 degrees around X to bring poles from Z-axis to Y-axis (Up)
     float axis[] = {1.0f, 0.0f, 0.0f};
     par_shapes_rotate(mesh, PAR_PI, axis);
 
-    // 2. Fix UV mapping: par_shapes provides (U=phi, V=theta)
+    // Fix UV mapping: par_shapes provides (U=phi, V=theta)
     // Standard mapping expects (U=theta/longitude, V=phi/latitude)
     for (int i = 0; i < mesh->npoints; i++)
     {
@@ -428,6 +465,12 @@ void VertexArray::bufferSphere(int detail)
         float v_old = mesh->tcoords[i * 2 + 1];
         mesh->tcoords[i * 2] = v_old;            // U is now around (longitude)
         mesh->tcoords[i * 2 + 1] = 1.0f - u_old; // V is now up/down (latitude), flip so 1.0 is North Pole
+    }
+
+    // Fix reversed texture on x axis
+    for (int i = 0; i < mesh->npoints; i++)
+    {
+        mesh->tcoords[i * 2] = -mesh->tcoords[i * 2] + 1.0f;
     }
 
     bufferMesh(mesh);
@@ -456,19 +499,19 @@ void VertexArray::bufferQuad()
         1, 3, 2  // Second Triangle (Bottom Right, Top Left, Bottom Left)
     };
 
-    // 2. Clean up old buffers
+    // Clean up old buffers
     glDeleteVertexArrays(1, &this->VAO);
     glDeleteBuffers(1, &this->VBO);
     glDeleteBuffers(1, &this->VBO_TEX);
     glDeleteBuffers(1, &this->EBO);
 
-    // 3. Create new buffers
+    // Create new buffers
     glCreateVertexArrays(1, &this->VAO);
     glCreateBuffers(1, &this->VBO);
     glCreateBuffers(1, &this->VBO_TEX);
     glCreateBuffers(1, &this->EBO);
 
-    // --- 4. Position Buffer (Location 0, Binding 0) ---
+    // Position Buffer (Location 0, Binding 0) ---
     glNamedBufferStorage(this->VBO, sizeof(positions), positions, 0);
     glVertexArrayVertexBuffer(this->VAO, 0, this->VBO, 0, 3 * sizeof(float));
 
@@ -476,7 +519,7 @@ void VertexArray::bufferQuad()
     glVertexArrayAttribFormat(this->VAO, 0, 3, GL_FLOAT, GL_FALSE, 0);
     glVertexArrayAttribBinding(this->VAO, 0, 0);
 
-    // --- 5. Texture Coordinate Buffer (Location 1, Binding 1) ---
+    // Texture Coordinate Buffer (Location 1, Binding 1) ---
     glNamedBufferStorage(this->VBO_TEX, sizeof(texCoords), texCoords, 0);
     glVertexArrayVertexBuffer(this->VAO, 1, this->VBO_TEX, 0, 2 * sizeof(float));
 
@@ -484,12 +527,10 @@ void VertexArray::bufferQuad()
     glVertexArrayAttribFormat(this->VAO, 1, 2, GL_FLOAT, GL_FALSE, 0);
     glVertexArrayAttribBinding(this->VAO, 1, 1);
 
-    // --- 6. Element Buffer ---
+    // Element Buffer ---
     glNamedBufferStorage(this->EBO, sizeof(indices), indices, 0);
     glVertexArrayElementBuffer(this->VAO, this->EBO);
 
-    // 7. Store the index count for glDrawElements
-    // A quad is 2 triangles * 3 vertices = 6 indices
     this->indices = 6;
 }
 

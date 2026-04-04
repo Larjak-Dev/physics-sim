@@ -12,7 +12,7 @@ struct Derivates
     vec3d k{};
 };
 
-// Buffer for memory during
+// Buffer for memory during RK4 algorithm
 struct StepBuffer
 {
     std::vector<Derivates> der_1;
@@ -36,4 +36,5 @@ class PhysicFunctions
 
     PhysicFunctions(PhysicConfig config);
 };
+
 } // namespace phys

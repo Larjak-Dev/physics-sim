@@ -61,6 +61,8 @@ class Simulator
     bool isPausedPreview();
     bool isStoppedPreview();
 
+    std::atomic<double> speed{1.0};
+
   private:
     std::thread thread_sim;
     std::thread thread_preview;

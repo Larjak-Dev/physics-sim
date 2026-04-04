@@ -3,7 +3,7 @@ using namespace phys;
 
 GlResources::GlResources()
 {
-    this->sphere.bufferSphere(32);
+    this->sphere.bufferSphere(64);
     this->grid.bufferLines(this->grid_amount, this->grid_amount, 0);
     this->default_tex.createColor({1.0, 1.0, 1.0, 1.0});
     this->quad.bufferQuad();
@@ -19,6 +19,8 @@ GlResources::GlResources()
 
     this->moon.loadFromImage("assets/moon.jpg");
     this->earth_day.loadFromImage("assets/earth_daymap.jpg");
+    this->earth_night.loadFromImage("assets/earth_nightmap.jpg");
     this->earth_clouds.loadFromImage("assets/earth_clouds.jpg");
     this->stars.loadFromImage("assets/stars_milky_way.jpg");
+    this->saturn_ring.loadFromImage("assets/saturn_ring.png");
 }

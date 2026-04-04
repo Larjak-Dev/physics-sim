@@ -129,7 +129,7 @@ Universe phys::createUniverse(const UniverseConfig config)
         camera.center = {0.0, 0.0, 0.0};
         camera.distance = distance * 1.3;
 
-        universe.physicConfig.step_config.total_time = 10.0;
+        universe.physicConfig.step_config.delta_time = 100.0;
         universe.physicConfig.step_config.speed = 1000;
     }
     break;

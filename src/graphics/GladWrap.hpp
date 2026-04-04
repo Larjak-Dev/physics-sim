@@ -47,6 +47,8 @@ class FrameBuffer
     // Bind a specific attachment to a texture unit
     void bindTexture(uint32_t unit) const;
     void bindFrameBuffer(uint32_t index) const;
+    void activate_zdepth();
+    void deactive_zdepth();
 
     uint32_t fbo_id{0};
     uint32_t rbo_id{0};
@@ -92,6 +94,10 @@ class ShaderMain : public Shader
     void setColor(Color color);
     void setColorExt(Color color);
     void setTexture(const Texture &texture);
+    void setTextureDarkSide(const Texture &texture);
+    void setHasDarkSide(bool hasDarkSide);
+    void setTextureAtmosphere(const Texture &texture);
+    void setHasAtmosphere(bool hasAtmosphere);
     void setTransparency(float transparency);
     void setBrightness(float brightness);
     void setBodyPosition(vec3f pos);

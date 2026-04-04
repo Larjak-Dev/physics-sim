@@ -30,6 +30,9 @@ class Player : public Slide
                                        // using an factor from 0.0f to 1.0f
     float timeline_slide_value{0.0f};
 
+    bool is_playing{false};
+    float playback_speed{1.0f};
+
     void multipleScenes();
     void almagationScene();
 

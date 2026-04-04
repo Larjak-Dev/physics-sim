@@ -1,9 +1,19 @@
 #pragma once
 #include "imgui.h"
+#include "../../core/Units.hpp"
+#include <glm/common.hpp>
 #include <vector>
 
 namespace phys::app
 {
+
+inline Color hueToRGB(float f)
+{
+    vec3f rgb =
+        glm::clamp(glm::abs(glm::mod(f * 6.0f + vec3f(0.0f, 4.0f, 2.0), 6.0f) - 3.0f) - 1.0f, 0.0f, 1.0f);
+    return Color(rgb.r, rgb.g, rgb.b, 1.0f);
+}
+
 template <typename T>
 bool EnumCombo(const char *label, T &value, const std::vector<std::pair<T, const char *>> &options)
 {

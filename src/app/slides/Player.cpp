@@ -58,7 +58,7 @@ void Player::multipleScenes()
 
         // Setup Scene widget
         scene_widget.universe->camera = this->scenes_camera;
-        int frame_index = std::floor((frame_amount - 1) * this->timeline_passed_ratio);
+        int frame_index = std::round((frame_amount - 1) * this->timeline_passed_ratio);
         scene_widget.universe->env->setEnvironment_safe(frames[frame_index]);
         scene_widget.universe->env->getProperties_ref() = recording->universe->env->getProperties_ref();
 
@@ -91,16 +91,15 @@ void Player::almagationScene()
     this->scene_widget_alm.universe->env->setEnvironment_safe(env_first);
     this->scene_widget_alm.universe->env->getProperties_ref() = universe->env->getProperties_ref();
 
-    int has_kinematic = recording_first->getKinematicFrames().size() > 0;
+    bool has_kinematic = static_cast<Environment>(*recording_first->universe->env).config.is_calculated;
 
-    this->scene_widget_alm.resize_ColorSpectrum(has_kinematic + selected_amount);
+    this->scene_widget_alm.resize(has_kinematic + selected_amount);
     this->scene_widget_alm.universes[0]->camera = this->scenes_camera;
 
     // Kinematic rendering
     if (has_kinematic)
     {
-        this->scene_widget_alm.properties[0].first = 0.8;
-        this->scene_widget_alm.properties[0].second = Color(0.5, 0.5, 0.5);
+        this->scene_widget_alm.properties[0] = {0.8f, Color(0.5, 0.5, 0.5)};
         const auto time = recording_first->total_time * static_cast<double>(this->timeline_passed_ratio);
         const auto env = static_cast<Environment>(*recording_first->universe->env);
         const auto body_kinematic = phys::calcBody(env.config, time);
@@ -112,9 +111,10 @@ void Player::almagationScene()
     }
 
     // Selected Environments rendering
-    int index = has_kinematic;
-    for (auto &&[recording, b] : this->recordings)
+    int alm_index = has_kinematic;
+    for (auto &&[i, item] : std::views::enumerate(this->recordings))
     {
+        auto &&[recording, b] = item;
         if (b == false)
         {
             continue;
@@ -129,11 +129,15 @@ void Player::almagationScene()
         const auto &frames = recording->getFrames();
         const float frame_amount = frames.size();
 
-        int frame_index = std::round((frame_amount - 1) * this->timeline_passed_ratio);
-        this->scene_widget_alm.universes[index]->env->setEnvironment_safe(frames[frame_index]);
-        this->scene_widget_alm.universes[index]->env->getProperties_ref() = universe->env->getProperties_ref();
+        // Stable color based on original list index
+        float hue = std::fmod(static_cast<float>(i) * 0.618033988749895f, 1.0f);
+        this->scene_widget_alm.properties[alm_index] = {1.0f, hueToRGB(hue)};
 
-        index++;
+        int frame_index = std::round((frame_amount - 1) * this->timeline_passed_ratio);
+        this->scene_widget_alm.universes[alm_index]->env->setEnvironment_safe(frames[frame_index]);
+        this->scene_widget_alm.universes[alm_index]->env->getProperties_ref() = universe->env->getProperties_ref();
+
+        alm_index++;
     }
 
     this->scene_widget_alm.update();
@@ -172,21 +176,120 @@ void Player::tickContent()
         if (first_item != this->recordings.end())
         {
             const auto &recording = first_item->first;
-            if (ImGui::SliderFloat("Timeline", &this->timeline_slide_value, 0.0f, first_item->first->total_time, "%.3f",
-                                   ImGuiSliderFlags_AlwaysClamp))
+            const float total_time = recording->total_time;
+            const size_t total_frames = recording->getFrames().size();
+            
+            // Unified frame calculation from ratio
+            auto get_frame_from_ratio = [&](float ratio) {
+                return std::clamp(static_cast<int>(std::round(ratio * (total_frames - 1))), 0, static_cast<int>(total_frames - 1));
+            };
+
+            int current_frame_i = get_frame_from_ratio(this->timeline_passed_ratio);
+            const float current_time = this->timeline_passed_ratio * total_time;
+
+            // Playback logic
+            if (this->is_playing)
             {
-                unsigned int index = static_cast<unsigned int>(
-                    std::round(recording->getFrames().size() * this->timeline_slide_value / recording->total_time));
-                setFrameIndex(index);
+                float dt = ImGui::GetIO().DeltaTime * this->playback_speed;
+                float new_time = current_time + dt;
+                if (new_time >= total_time)
+                {
+                    new_time = 0.0f; // Loop
+                }
+                this->timeline_passed_ratio = new_time / total_time;
             }
-            if (ImGui::Button("Prev Frame"))
+
+            // UI Layout
+            float available_width = ImGui::GetContentRegionAvail().x;
+            
+            // --- COOLER SLIDER START ---
+            float grab_sz = 20.0f;
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 12.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, grab_sz);
+            
+            ImGui::SetNextItemWidth(available_width);
+            
+            // Use SliderInt for the frame index to ensure 100% click accuracy
+            if (ImGui::SliderInt("##TimelineSlider", &current_frame_i, 0, total_frames - 1, ""))
             {
-                stepTimeline(-1);
+                this->timeline_passed_ratio = static_cast<float>(current_frame_i) / (total_frames - 1);
+                this->is_playing = false;
             }
-            if (ImGui::Button("Next Frame"))
+
+            ImVec2 slider_min = ImGui::GetItemRectMin();
+            ImVec2 slider_max = ImGui::GetItemRectMax();
+
+            // Accurate ratio calculation matching ImGui internal SliderBehaviorT for SliderInt
+            float slider_sz = (slider_max.x - slider_min.x) - 4.0f; // 2.0f grab_padding on each side
+            float actual_grab_sz = std::max(slider_sz / static_cast<float>(total_frames), grab_sz);
+            float usable_w = slider_sz - actual_grab_sz;
+            float usable_x_min = slider_min.x + 2.0f + actual_grab_sz * 0.5f;
+
+            auto get_ratio_from_x = [&](float x) {
+                if (usable_w <= 0.0f) return 0.0f;
+                return std::clamp((x - usable_x_min) / usable_w, 0.0f, 1.0f);
+            };
+
+            // Hover Tooltip: Preview time at mouse position
+            if (ImGui::IsItemHovered())
             {
-                stepTimeline(1);
+                float hover_ratio = get_ratio_from_x(ImGui::GetMousePos().x);
+                int hover_frame = get_frame_from_ratio(hover_ratio);
+                float snapped_hover_ratio = static_cast<float>(hover_frame) / (total_frames - 1);
+                float hover_time = snapped_hover_ratio * total_time;
+                
+                ImGui::BeginTooltip();
+                ImGui::Text("Jump to: %.3f s (Frame %d)", hover_time, hover_frame + 1);
+                ImGui::EndTooltip();
             }
+
+            // Custom "Played" progress bar overlay using theme colors
+            ImDrawList* draw_list = ImGui::GetWindowDrawList();
+            // Calculate progress bar width to end exactly at the center of the grabber
+            float fill_x_end = usable_x_min + (this->timeline_passed_ratio * usable_w);
+            
+            if (fill_x_end > slider_min.x + 4.0f) {
+                ImU32 fill_col = ImGui::GetColorU32(ImGuiCol_HeaderActive, 0.5f);
+                draw_list->AddRectFilled(
+                    slider_min, 
+                    ImVec2(fill_x_end, slider_max.y), 
+                    fill_col, 12.0f
+                );
+            }
+
+            ImGui::PopStyleVar(3);
+            // --- COOLER SLIDER END ---
+
+            // Second row: Controls and Info
+            float btn_size = ImGui::GetFrameHeight();
+            
+            // Buttons group
+            if (ImGui::Button(this->is_playing ? "Pause" : "Play", ImVec2(btn_size * 2.5f, 0)))
+            {
+                this->is_playing = !this->is_playing;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("|<", ImVec2(btn_size, 0))) { setFrameIndex(0); this->is_playing = false; }
+            ImGui::SameLine();
+            if (ImGui::Button("<", ImVec2(btn_size, 0))) { stepTimeline(-1); this->is_playing = false; }
+            ImGui::SameLine();
+            if (ImGui::Button(">", ImVec2(btn_size, 0))) { stepTimeline(1); this->is_playing = false; }
+            ImGui::SameLine();
+            if (ImGui::Button(">|", ImVec2(btn_size, 0))) { setFrameIndex(total_frames - 1); this->is_playing = false; }
+
+            ImGui::SameLine();
+            ImGui::SetNextItemWidth(btn_size * 3.0f);
+            ImGui::DragFloat("##Speed", &this->playback_speed, 0.05f, 0.1f, 10.0f, "x%.1f");
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Playback Speed");
+
+            // Time/Frame info on the right
+            std::string info_str = std::format("{:.2f} / {:.2f}s | Frame {} / {}", 
+                                               current_time, total_time, current_frame_i + 1, total_frames);
+            float text_width = ImGui::CalcTextSize(info_str.c_str()).x;
+            ImGui::SameLine(available_width - text_width);
+            ImGui::TextUnformatted(info_str.c_str());
+
             ImGui::End();
         }
     }
@@ -223,11 +326,23 @@ void Player::buildDock(ImGuiID dock_player)
 void Player::stepTimeline(int i)
 {
     const auto &first_item = std::ranges::find_if(this->recordings, [](const auto &item) { return item.second; });
+    if (first_item == this->recordings.end())
+        return;
     const auto &recording = first_item->first;
-    auto current_frame_index =
-        static_cast<unsigned int>(std::round(this->timeline_passed_ratio * (recording->getFrames().size() - 1)));
-    auto index_new = current_frame_index + i;
-    setFrameIndex(index_new);
+
+    size_t frames_size = recording->getFrames().size();
+    if (frames_size <= 1)
+        return;
+
+    int current_frame_index = static_cast<int>(std::round(this->timeline_passed_ratio * (frames_size - 1)));
+    int index_new = current_frame_index + i;
+
+    if (index_new < 0)
+        index_new = 0;
+    if (index_new >= static_cast<int>(frames_size))
+        index_new = static_cast<int>(frames_size) - 1;
+
+    setFrameIndex(static_cast<unsigned int>(index_new));
 }
 
 std::string last_save = "";
@@ -265,6 +380,7 @@ void Player::saveAsExcel()
         {
             auto environment = static_cast<Environment>(*recording->universe->env);
             auto universe_config = environment.config;
+            bool is_kinematic = universe_config.is_calculated;
 
             // Row 1
             wks.cell(1, x_index).value() =
@@ -276,21 +392,31 @@ void Player::saveAsExcel()
             int y_label = 3;
             wks.cell(y_label, x_index).value() = "Time:";
             wks.cell(y_label, x_index + 1).value() = "Index:";
-            wks.cell(y_label, x_index + 2).value() = "X (Kinematic):";
-            wks.cell(y_label, x_index + 3).value() = "Y (Kinematic):";
-            wks.cell(y_label, x_index + 4).value() = "Z (Kinematic):";
-            wks.cell(y_label, x_index + 5).value() = "X:";
-            wks.cell(y_label, x_index + 6).value() = "Y:";
-            wks.cell(y_label, x_index + 7).value() = "Z:";
-            wks.cell(y_label, x_index + 8).value() = "Delta Magnitude:";
-            wks.cell(y_label, x_index + 9).value() = "Velocity (Kinematic):";
-            wks.cell(y_label, x_index + 10).value() = "Velocity:";
-            wks.cell(y_label, x_index + 11).value() = "Delta Velocity:";
-            wks.cell(y_label, x_index + 12).value() = "Energy Total (Kinematic):";
-            wks.cell(y_label, x_index + 13).value() = "Energy Total:";
-            wks.cell(y_label, x_index + 14).value() = "Delta Energy:";
-            wks.cell(y_label, x_index + 15).value() = "Delta Energy (Abs):";
-            wks.cell(y_label, x_index + 16).value() = "####";
+            
+            if (is_kinematic) {
+                wks.cell(y_label, x_index + 2).value() = "X (Kinematic):";
+                wks.cell(y_label, x_index + 3).value() = "Y (Kinematic):";
+                wks.cell(y_label, x_index + 4).value() = "Z (Kinematic):";
+                wks.cell(y_label, x_index + 5).value() = "X:";
+                wks.cell(y_label, x_index + 6).value() = "Y:";
+                wks.cell(y_label, x_index + 7).value() = "Z:";
+                wks.cell(y_label, x_index + 8).value() = "Delta Magnitude:";
+                wks.cell(y_label, x_index + 9).value() = "Velocity (Kinematic):";
+                wks.cell(y_label, x_index + 10).value() = "Velocity:";
+                wks.cell(y_label, x_index + 11).value() = "Delta Velocity:";
+                wks.cell(y_label, x_index + 12).value() = "Energy Total (Kinematic):";
+                wks.cell(y_label, x_index + 13).value() = "Energy Total:";
+                wks.cell(y_label, x_index + 14).value() = "Delta Energy:";
+                wks.cell(y_label, x_index + 15).value() = "Delta Energy (Abs):";
+                wks.cell(y_label, x_index + 16).value() = "####";
+            } else {
+                wks.cell(y_label, x_index + 2).value() = "X:";
+                wks.cell(y_label, x_index + 3).value() = "Y:";
+                wks.cell(y_label, x_index + 4).value() = "Z:";
+                wks.cell(y_label, x_index + 5).value() = "Velocity:";
+                wks.cell(y_label, x_index + 6).value() = "Energy Total:";
+                wks.cell(y_label, x_index + 7).value() = "####";
+            }
 
             // DATA Values
 
@@ -303,7 +429,6 @@ void Player::saveAsExcel()
             const auto &frames = recording->getFrames();
             for (auto &&[i, env] : std::views::enumerate(frames))
             {
-                const auto kinematic_body = phys::calcBody(universe_config, env.passed_time);
                 auto body = env.bodies[0];
                 const double dt = recording->universe->physicConfig.step_config.delta_time;
 
@@ -316,31 +441,19 @@ void Player::saveAsExcel()
 
                 const auto time = env.passed_time;
                 const auto index = i;
-                const auto x_k = kinematic_body.pos.x;
-                const auto y_k = kinematic_body.pos.y;
-                const auto z_k = kinematic_body.pos.z;
                 const auto x = body.pos.x;
                 const auto y = body.pos.y;
                 const auto z = body.pos.z;
-                const auto magnitude_delta = glm::length(body.pos - kinematic_body.pos);
-                const auto velocity_k = glm::length(kinematic_body.vel);
                 const auto velocity = glm::length(body.vel);
-                const auto velocity_delta = velocity - velocity_k;
-                auto energy_k_k = 0.5 * kinematic_body.mass * std::pow(velocity_k, 2);
-                auto energy_p_k = 0.0;
-                auto energy_t_k = 0.0;
+                
                 auto energy_k = 0.5 * body.mass * std::pow(velocity, 2);
                 auto energy_p = 0.0;
-                auto energy_t = 0.0;
-                auto energy_t_delta = 0.0;
-                auto energy_t_delta_abs = 0.0;
 
                 switch (universe_config.force_config.force_type)
                 {
                 case phys::ForceType::FreeFall:
                 {
                     const auto g = universe_config.force_config.freefall_config.g;
-                    energy_p_k = kinematic_body.mass * g * kinematic_body.pos.y;
                     energy_p = body.mass * g * body.pos.y;
                 }
                 break;
@@ -348,10 +461,6 @@ void Player::saveAsExcel()
                 {
                     const auto G = universe_config.force_config.newtonian_config.G;
                     const auto M = universe_config.mass_2_newtonian;
-
-                    const auto r_k = glm::length(kinematic_body.pos);
-                    energy_p_k = -G * M * kinematic_body.mass / r_k;
-
                     const auto r = glm::length(body.pos);
                     energy_p = -G * M * body.mass / r;
                 }
@@ -360,47 +469,79 @@ void Player::saveAsExcel()
                     break;
                 }
 
-                energy_t_k = energy_p_k + energy_k_k;
-                energy_t = energy_p + energy_k;
-                energy_t_delta = energy_t - energy_t_k;
-                energy_t_delta_abs = glm::abs(energy_t_delta);
+                auto energy_t = energy_p + energy_k;
 
-                wks.cell(y_values + i, x_index).value() = time;
-                wks.cell(y_values + i, x_index + 1).value() = index;
-                wks.cell(y_values + i, x_index + 2).value() = x_k;
-                wks.cell(y_values + i, x_index + 3).value() = y_k;
-                wks.cell(y_values + i, x_index + 4).value() = z_k;
-                wks.cell(y_values + i, x_index + 5).value() = x;
-                wks.cell(y_values + i, x_index + 6).value() = y;
-                wks.cell(y_values + i, x_index + 7).value() = z;
-                wks.cell(y_values + i, x_index + 8).value() = magnitude_delta;
-                wks.cell(y_values + i, x_index + 9).value() = velocity_k;
-                wks.cell(y_values + i, x_index + 10).value() = velocity;
-                wks.cell(y_values + i, x_index + 11).value() = velocity_delta;
-                wks.cell(y_values + i, x_index + 12).value() = energy_t_k;
-                wks.cell(y_values + i, x_index + 13).value() = energy_t;
-                wks.cell(y_values + i, x_index + 14).value() = energy_t_delta;
-                wks.cell(y_values + i, x_index + 15).value() = energy_t_delta_abs;
-                wks.cell(y_values + i, x_index + 16).value() = "####";
+                if (is_kinematic) {
+                    const auto kinematic_body = phys::calcBody(universe_config, env.passed_time);
+                    const auto x_k = kinematic_body.pos.x;
+                    const auto y_k = kinematic_body.pos.y;
+                    const auto z_k = kinematic_body.pos.z;
+                    const auto magnitude_delta = glm::length(body.pos - kinematic_body.pos);
+                    const auto velocity_k = glm::length(kinematic_body.vel);
+                    const auto velocity_delta = velocity - velocity_k;
+                    
+                    auto energy_k_k = 0.5 * kinematic_body.mass * std::pow(velocity_k, 2);
+                    auto energy_p_k = 0.0;
+                    if (universe_config.force_config.force_type == ForceType::FreeFall) {
+                        energy_p_k = kinematic_body.mass * universe_config.force_config.freefall_config.g * kinematic_body.pos.y;
+                    } else if (universe_config.force_config.force_type == ForceType::Newtonian) {
+                        energy_p_k = -universe_config.force_config.newtonian_config.G * universe_config.mass_2_newtonian * kinematic_body.mass / glm::length(kinematic_body.pos);
+                    }
+                    
+                    auto energy_t_k = energy_p_k + energy_k_k;
+                    auto energy_t_delta = energy_t - energy_t_k;
+                    auto energy_t_delta_abs = glm::abs(energy_t_delta);
 
-                magnitude_delta_sum += magnitude_delta;
-                velocity_delta_sum += velocity_delta;
-                energy_delta_sum += energy_t_delta_abs;
+                    wks.cell(y_values + i, x_index).value() = time;
+                    wks.cell(y_values + i, x_index + 1).value() = index;
+                    wks.cell(y_values + i, x_index + 2).value() = x_k;
+                    wks.cell(y_values + i, x_index + 3).value() = y_k;
+                    wks.cell(y_values + i, x_index + 4).value() = z_k;
+                    wks.cell(y_values + i, x_index + 5).value() = x;
+                    wks.cell(y_values + i, x_index + 6).value() = y;
+                    wks.cell(y_values + i, x_index + 7).value() = z;
+                    wks.cell(y_values + i, x_index + 8).value() = magnitude_delta;
+                    wks.cell(y_values + i, x_index + 9).value() = velocity_k;
+                    wks.cell(y_values + i, x_index + 10).value() = velocity;
+                    wks.cell(y_values + i, x_index + 11).value() = velocity_delta;
+                    wks.cell(y_values + i, x_index + 12).value() = energy_t_k;
+                    wks.cell(y_values + i, x_index + 13).value() = energy_t;
+                    wks.cell(y_values + i, x_index + 14).value() = energy_t_delta;
+                    wks.cell(y_values + i, x_index + 15).value() = energy_t_delta_abs;
+                    wks.cell(y_values + i, x_index + 16).value() = "####";
+
+                    magnitude_delta_sum += magnitude_delta;
+                    velocity_delta_sum += velocity_delta;
+                    energy_delta_sum += energy_t_delta_abs;
+                } else {
+                    wks.cell(y_values + i, x_index).value() = time;
+                    wks.cell(y_values + i, x_index + 1).value() = index;
+                    wks.cell(y_values + i, x_index + 2).value() = x;
+                    wks.cell(y_values + i, x_index + 3).value() = y;
+                    wks.cell(y_values + i, x_index + 4).value() = z;
+                    wks.cell(y_values + i, x_index + 5).value() = velocity;
+                    wks.cell(y_values + i, x_index + 6).value() = energy_t;
+                    wks.cell(y_values + i, x_index + 7).value() = "####";
+                }
             }
 
-            const auto magnitude_delta_average = magnitude_delta_sum / recording->getFrames().size();
-            const auto velocity_delta_average = velocity_delta_sum / recording->getFrames().size();
-            const auto energy_delta_average = energy_delta_sum / recording->getFrames().size();
+            if (is_kinematic) {
+                const auto magnitude_delta_average = magnitude_delta_sum / recording->getFrames().size();
+                const auto velocity_delta_average = velocity_delta_sum / recording->getFrames().size();
+                const auto energy_delta_average = energy_delta_sum / recording->getFrames().size();
 
-            // Averages
-            wks.cell(1, x_index + 7).value() = "Magnitude Delta Average: ";
-            wks.cell(1, x_index + 8).value() = magnitude_delta_average;
-            wks.cell(1, x_index + 10).value() = "Velocity Delta Average";
-            wks.cell(1, x_index + 11).value() = velocity_delta_average;
-            wks.cell(1, x_index + 14).value() = "Energy Delta Average";
-            wks.cell(1, x_index + 15).value() = energy_delta_average;
+                // Averages
+                wks.cell(1, x_index + 7).value() = "Magnitude Delta Average: ";
+                wks.cell(1, x_index + 8).value() = magnitude_delta_average;
+                wks.cell(1, x_index + 10).value() = "Velocity Delta Average";
+                wks.cell(1, x_index + 11).value() = velocity_delta_average;
+                wks.cell(1, x_index + 14).value() = "Energy Delta Average";
+                wks.cell(1, x_index + 15).value() = energy_delta_average;
 
-            x_index += 17;
+                x_index += 17;
+            } else {
+                x_index += 8;
+            }
         }
     }
 
@@ -409,24 +550,66 @@ void Player::saveAsExcel()
 
 void Player::tickRightBar()
 {
-
     // Config
     ImGui::Begin("Control Panel");
 
-    ImGui::BeginDisabled(this->simulator.isRunningPreview());
+    if (ImGui::BeginTable("PlayerConfigTable", 2, ImGuiTableFlags_SizingStretchProp))
+    {
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch, 0.4f);
+        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch, 0.6f);
 
-    static const std::vector<std::pair<phys::StepType, const char *>> methods = {
-        {phys::StepType::ImplicitEuler, "Implicit Euler"},
-        {phys::StepType::Verlet, "Verlet"},
-        {phys::StepType::RK4, "RK4"}};
-    EnumCombo("Step Method", this->universe->physicConfig.step_config.step_type, methods);
+        ImGui::BeginDisabled(this->simulator.isRunningPreview());
 
-    ImGui::InputDouble("Delta Time", &this->universe->physicConfig.step_config.delta_time);
+        // Step Method Row
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Step Method");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        static const std::vector<std::pair<phys::StepType, const char *>> methods = {
+            {phys::StepType::ImplicitEuler, "Implicit Euler"}, {phys::StepType::Verlet, "Verlet"}, {phys::StepType::RK4, "RK4"}};
+        EnumCombo("##method", this->universe->physicConfig.step_config.step_type, methods);
 
-    ImGui::EndDisabled();
+        // Delta Time Row
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Delta Time");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputDouble("##deltatime", &this->universe->physicConfig.step_config.delta_time, 0, 0, "%.4e s");
+
+        ImGui::EndDisabled();
+
+        // Status for simulator
+        std::string status = "nothing";
+        uint32_t completion = 0;
+
+        if (recordings.size() > 0)
+        {
+            auto &recording_back = recordings.back().first;
+            status = recording_back->getStatusStr();
+            completion = recording_back->getCompletion();
+        }
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Status");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("%s", status.c_str());
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Completion");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::Text("%d%%", completion);
+
+        ImGui::EndTable();
+    }
+
+    ImGui::Separator();
 
     ////Buttons for simulator
-    if (!this->simulator.isRunningPreview() && ImGui::Button("Start"))
+    if (!this->simulator.isRunningPreview() && ImGui::Button("Start", ImVec2(-FLT_MIN, 0)))
     {
         // Create recording
         this->recordings.emplace_back(std::make_shared<Recording>(), false);
@@ -437,71 +620,79 @@ void Player::tickRightBar()
         // Start simulating
         this->simulator.startPreview(universe->copy(), recording);
     }
-    if (this->simulator.isRunningPreview() && ImGui::Button("Stop"))
-    {
-        this->simulator.stopPreview();
-    }
-
     if (this->simulator.isRunningPreview())
     {
-        if (!this->simulator.isPausedPreview() && ImGui::Button("Pause"))
+        if (ImGui::Button("Stop", ImVec2(ImGui::GetContentRegionAvail().x * 0.5f, 0)))
+        {
+            this->simulator.stopPreview();
+        }
+        ImGui::SameLine();
+        if (!this->simulator.isPausedPreview() && ImGui::Button("Pause", ImVec2(-FLT_MIN, 0)))
         {
             this->simulator.pausePreview();
         }
-        if (this->simulator.isPausedPreview() && ImGui::Button("Resume"))
+        if (this->simulator.isPausedPreview() && ImGui::Button("Resume", ImVec2(-FLT_MIN, 0)))
         {
             this->simulator.resumePreview();
         }
     }
 
-    ////Status for simulator
-    std::string status = "nothing";
-    uint32_t completion = 0;
-
-    if (recordings.size() > 0)
-    {
-        auto &recording_back = recordings.back().first;
-        status = recording_back->getStatusStr();
-        completion = recording_back->getCompletion();
-    }
-
-    ImGui::Text("%s", status.c_str());
-    ImGui::Text("completion: %d", completion);
-    // uint32_t amount_frames = recording->getFrames().size();
-    //  ImGui::Text("Frame amount: %d", amount_frames);
+    ImGui::SeparatorText("Recordings");
 
     ////Recordings resulted from simulator.
     ////Select recordings to view
-    ImGui::BeginChild("Recordings", ImVec2(0, 100));
+    int selected_count = 0;
+    for (auto &&[r, b] : this->recordings)
+        if (b)
+            selected_count++;
+
+    ImGui::BeginChild("RecordingsList", ImVec2(0, 150), ImGuiChildFlags_Borders);
     for (auto &&[i, item] : std::views::enumerate(this->recordings))
     {
         auto &&[recording, b] = item;
         if (recording->getStatus() >= 1)
         {
             ImGui::BeginDisabled(recording->getStatus() < 3);
+
+            bool pushed_color = false;
+            if (b)
+            {
+                float hue = std::fmod(static_cast<float>(i) * 0.618033988749895f, 1.0f);
+                Color c = hueToRGB(hue);
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(c.r, c.g, c.b, 1.0f));
+                pushed_color = true;
+            }
+
             const auto physics_config = recording->universe->physicConfig;
             std::string check_str =
-                std::format("Recording {} ({},{})", i, getStepMetodStr(physics_config.step_config.step_type),
+                std::format("Recording {} ({}, dt: {:.1e})", i + 1, getStepMetodStr(physics_config.step_config.step_type),
                             physics_config.step_config.delta_time);
             ImGui::Checkbox(check_str.c_str(), reinterpret_cast<bool *>(&b));
+
+            if (pushed_color)
+                ImGui::PopStyleColor();
+
             ImGui::EndDisabled();
         }
     }
-
-    // Clear Recordings
     ImGui::EndChild();
-    if (ImGui::Button("Clear Recordings"))
+
+    if (ImGui::Button("Clear Recordings", ImVec2(-FLT_MIN, 0)))
     {
-        this->recordings.clear();
         this->recordings.clear();
     }
 
+    ImGui::Separator();
+
     // Save Excel
-    if (ImGui::Button("Save Excel"))
+    if (ImGui::Button("Save Excel", ImVec2(-FLT_MIN, 0)))
     {
         this->saveAsExcel();
     }
-    ImGui::Text(last_save.c_str());
+    if (!last_save.empty())
+    {
+        ImGui::TextWrapped("Last saved: %s", last_save.c_str());
+    }
 
     ImGui::End();
 }
@@ -511,11 +702,19 @@ void Player::setFrameIndex(unsigned int i)
 {
 
     const auto &first_item = std::ranges::find_if(this->recordings, [](const auto &item) { return item.second; });
+    if (first_item == this->recordings.end())
+        return;
     const auto &recording = first_item->first;
 
-    unsigned int frames_size = recording->getFrames().size();
-    if (i >= frames_size)
+    size_t frames_size = recording->getFrames().size();
+    if (frames_size <= 1)
+    {
+        this->timeline_passed_ratio = 0.0f;
         return;
+    }
 
-    this->timeline_passed_ratio = static_cast<float>(i) / recording->getFrames().size();
+    if (i >= frames_size)
+        i = frames_size - 1;
+
+    this->timeline_passed_ratio = static_cast<float>(i) / (frames_size - 1);
 }

@@ -69,6 +69,7 @@ FetchContent_MakeAvailable(json)
 #cpr
 message(STATUS "Fetching cpr")
 set(BUILD_CPR_TESTS OFF CACHE INTERNAL "")
+set(CPR_CURL_USE_LIBPSL OFF CACHE INTERNAL "")
 FetchContent_MakeAvailable(cpr)
 #OpenXLSX
 message(STATUS "Fetching OpenXLSX")
@@ -105,7 +106,11 @@ file(GLOB_RECURSE PROJECT_SOURCES
 )
 
 # 3. Create Executable
-add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
+if(WIN32)
+    add_executable(${PROJECT_NAME} WIN32 ${PROJECT_SOURCES})
+else()
+    add_executable(${PROJECT_NAME} ${PROJECT_SOURCES})
+endif()
 
 # 4. Include Directories
 target_include_directories(${PROJECT_NAME} PUBLIC

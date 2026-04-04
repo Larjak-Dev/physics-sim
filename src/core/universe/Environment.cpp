@@ -86,19 +86,21 @@ bool EnvironmentActive::setBody(uint16_t bodyId, std::pair<Body, Property> pair)
     if (body != this->env.bodies.end())
     {
         auto &body_ = pair.first;
-        body->is_locked = body_.is_locked;
-        body->mass = body_.mass;
-        body->pos = body_.pos;
-        body->vel = body_.vel;
+        *body = body_;
+        // body->is_locked = body_.is_locked;
+        // body->mass = body_.mass;
+        // body->pos = body_.pos;
+        // body->vel = body_.vel;
 
         int i = std::distance(env.bodies.begin(), body);
         auto &property = this->env.properties[i];
         auto &property_ = pair.second;
-        property.color = property_.color;
-        property.size = property_.size;
-        property.tilt = property_.tilt;
-        property.rotation_start = property_.rotation_start;
-        property.rotation_velocity = property_.rotation_velocity;
+        property = property_;
+        // property.color = property_.color;
+        // property.size = property_.size;
+        // property.tilt = property_.tilt;
+        // property.rotation_start = property_.rotation_start;
+        // property.rotation_velocity = property_.rotation_velocity;
 
         return true;
     }

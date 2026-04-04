@@ -12,6 +12,7 @@ using namespace phys::app;
 
 Editor::Editor(AppContext &context) : Slide(context)
 {
+    this->universe_type = PresetType::Kinematic;
 }
 
 void Editor::tickContent()
@@ -23,35 +24,78 @@ void Editor::tickContent()
 
 void Editor::tickKinematic(std::shared_ptr<Universe> &universe_main)
 {
-    static const std::vector<std::pair<phys::ForceType, const char *>> force_types = {
-        {phys::ForceType::FreeFall, "Free Fall"}, {phys::ForceType::Newtonian, "Satelite Orbit"}};
-    EnumCombo("Kinematic Environment", this->kinematic_config.type, force_types);
+    if (ImGui::BeginTable("KinematicInputTable", 2, ImGuiTableFlags_SizingStretchProp))
+    {
+        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 0.4f);
+        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch, 0.6f);
 
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.2, 0.2, 0.2, 0.5));
-    ImGui::BeginChild("Input", ImVec2(0, 100), ImGuiChildFlags_Borders);
-    switch (this->kinematic_config.type)
-    {
-    case phys::ForceType::FreeFall:
-    {
-        ImGui::InputDouble("Acceleration", &kinematic_config.acceleration, 0, 0, "%.4e m/s^2");
-        ImGui::InputDouble("Total Time", &kinematic_config.time_fall, 0, 0, "%.4e s");
-    }
-    break;
-    case phys::ForceType::Newtonian:
-    {
-        ImGui::InputDouble("G", &kinematic_config.G, 0, 0, "%.6e F/kg");
-        ImGui::InputDouble("Mass Planet", &kinematic_config.mass_planet, 0, 0, "%.4e");
-        ImGui::InputDouble("Distance", &kinematic_config.distance, 0, 0, "%.4e m");
-        ImGui::InputDouble("Total Time", &kinematic_config.time_satelite, 0, 0, "%.4e s");
-    }
-    break;
-    default:
+        // Kinematic Environment Row
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Environment");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        static const std::vector<std::pair<phys::ForceType, const char *>> force_types = {
+            {phys::ForceType::FreeFall, "Free Fall"}, {phys::ForceType::Newtonian, "Satelite Orbit"}};
+        EnumCombo("##kinematic_env", this->kinematic_config.type, force_types);
+
+        switch (this->kinematic_config.type)
+        {
+        case phys::ForceType::FreeFall:
+        {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("Acceleration");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            ImGui::InputDouble("##acceleration", &kinematic_config.acceleration, 0, 0, "%.4e m/s^2");
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("Total Time");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            ImGui::InputDouble("##time_fall", &kinematic_config.time_fall, 0, 0, "%.4e s");
+        }
         break;
-    }
-    ImGui::EndChild();
-    ImGui::PopStyleColor();
+        case phys::ForceType::Newtonian:
+        {
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("G");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            ImGui::InputDouble("##G", &kinematic_config.G, 0, 0, "%.6e F/kg");
 
-    if (ImGui::Button("Configure"))
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("Mass Planet");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            ImGui::InputDouble("##mass_planet", &kinematic_config.mass_planet, 0, 0, "%.4e");
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("Distance");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            ImGui::InputDouble("##distance", &kinematic_config.distance, 0, 0, "%.4e m");
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("Total Time");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            ImGui::InputDouble("##time_sat", &kinematic_config.time_satelite, 0, 0, "%.4e s");
+        }
+        break;
+        default:
+            break;
+        }
+        ImGui::EndTable();
+    }
+
+    if (ImGui::Button("Configure", ImVec2(-FLT_MIN, 0)))
     {
         if (this->kinematic_config.type == ForceType::Null)
         {
@@ -67,17 +111,43 @@ void Editor::tickKinematic(std::shared_ptr<Universe> &universe_main)
 
 void Editor::tickSolarSystem(std::shared_ptr<Universe> &universe_main)
 {
+    if (ImGui::BeginTable("SolarSystemInputTable", 2, ImGuiTableFlags_SizingStretchProp))
+    {
+        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 0.4f);
+        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch, 0.6f);
 
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.2, 0.2, 0.2, 0.5));
-    ImGui::BeginChild("Input", ImVec2(0, 100), ImGuiChildFlags_Borders);
-    ImGui::InputInt("Year", &this->planet_api.year_1);
-    ImGui::InputInt("Month", &this->planet_api.month_1);
-    ImGui::InputInt("Day", &this->planet_api.day_1);
-    ImGui::InputDouble("Total Time (Days):", &this->planet_api.total_days);
-    ImGui::EndChild();
-    ImGui::PopStyleColor();
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Year");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputInt("##year", &this->planet_api.year_1);
 
-    if (ImGui::Button("Configure"))
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Month");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputInt("##month", &this->planet_api.month_1);
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Day");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputInt("##day", &this->planet_api.day_1);
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Total Time");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputDouble("##total_days", &this->planet_api.total_days, 0, 0, "%.2f Days");
+
+        ImGui::EndTable();
+    }
+
+    if (ImGui::Button("Configure", ImVec2(-FLT_MIN, 0)))
     {
         {
             auto solar_systems = planet_api.fetchSolarSystem();
@@ -91,9 +161,24 @@ void Editor::tickRightBar(std::shared_ptr<Universe> &universe_main)
     // Config
     ImGui::Begin("Control Panel");
 
-    static const std::vector<std::pair<PresetType, const char *>> preset_types = {
-        {PresetType::Kinematic, "Calculated Kinematics"}, {PresetType::SolarSystem, "Solar Sytem"}};
-    EnumCombo("Preset ", universe_type, preset_types);
+    if (ImGui::BeginTable("PresetTable", 2, ImGuiTableFlags_SizingStretchProp))
+    {
+        ImGui::TableSetupColumn("Name", ImGuiTableColumnFlags_WidthStretch, 0.4f);
+        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch, 0.6f);
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Preset");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        static const std::vector<std::pair<PresetType, const char *>> preset_types = {
+            {PresetType::Kinematic, "Calculated Kinematics"}, {PresetType::SolarSystem, "Solar Sytem"}};
+        EnumCombo("##preset", universe_type, preset_types);
+
+        ImGui::EndTable();
+    }
+
+    ImGui::Separator();
 
     switch (universe_type)
     {

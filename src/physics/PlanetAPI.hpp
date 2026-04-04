@@ -1,6 +1,7 @@
 #pragma once
 #include "app/AppResources.hpp"
 #include "core/universe/Universe.hpp"
+#include "graphics/GladWrap.hpp"
 namespace phys
 {
 
@@ -31,6 +32,9 @@ struct PlanetID
     std::string name;
     phys::Color color;
     gl::Texture *texture;
+    gl::Texture *texture_dark;
+    gl::Texture *texture_atmosphere;
+    gl::Texture *texture_ring;
     float brightness{0.0};
 };
 

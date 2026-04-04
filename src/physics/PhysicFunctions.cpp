@@ -23,7 +23,7 @@ ForceFunction createNewtonianForceFunction(double G)
         [G](vec3d pos, const Body &self, const EnvironmentBase &env)
         {
             vec3d F_total{};
-            for (Body other : env.bodies)
+            for (const Body &other : env.bodies)
             {
                 if (other.id == self.id)
                     continue;

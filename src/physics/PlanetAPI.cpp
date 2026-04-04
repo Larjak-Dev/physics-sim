@@ -25,6 +25,9 @@ PlanetID PlanetAPI::getPlanetID(PlanetType planetType)
     phys::Color color;
     float brightness{0.0};
     gl::Texture *texture{nullptr};
+    gl::Texture *texture_atmosphere{nullptr};
+    gl::Texture *texture_dark{nullptr};
+    gl::Texture *texture_ring{nullptr};
 
     switch (planetType)
     {
@@ -55,6 +58,9 @@ PlanetID PlanetAPI::getPlanetID(PlanetType planetType)
         name = "Earth";
         color = {0, 0.5f, 0};
         texture = &resources_gl.earth_day;
+        texture_dark = &resources_gl.earth_night;
+        texture_atmosphere = &resources_gl.earth_clouds;
+        brightness = 0.2;
         break;
     case PlanetType::Mars:
 
@@ -76,6 +82,7 @@ PlanetID PlanetAPI::getPlanetID(PlanetType planetType)
         name = "Saturn";
         color = {0.8f, 0.8f, 0.6f};
         texture = &resources_gl.saturn;
+        texture_ring = &resources_gl.saturn_ring;
         break;
     case PlanetType::Uranus:
 
@@ -144,7 +151,7 @@ PlanetID PlanetAPI::getPlanetID(PlanetType planetType)
         assert(false && "Unvalid PlanetType");
         break;
     }
-    return PlanetID{id, name, color, texture, brightness};
+    return PlanetID{id, name, color, texture, texture_dark, texture_atmosphere, texture_ring, brightness};
 }
 
 PlanetAPI::PlanetAPI(AppContext &context) : context(context)
@@ -356,6 +363,9 @@ PlanetResult PlanetAPI::fetchPlanet(PlanetType planetType)
     prop.color = planet.color;
     prop.size = {radius, radius, radius};
     prop.texture = planet.texture;
+    prop.texture_dark = planet.texture_dark;
+    prop.texture_atmosphere = planet.texture_atmosphere;
+    prop.texture_ring = planet.texture_ring;
     prop.brightness = planet.brightness;
     prop.name = planet.name;
     prop.rotation_velocity = rotation_speed;

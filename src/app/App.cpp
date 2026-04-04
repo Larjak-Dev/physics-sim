@@ -19,18 +19,21 @@ void GLAPIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum se
                              message);
 }
 
-void loadGlad()
+bool loadGlad()
 {
-
     if (!gladLoadGLLoader((GLADloadproc)sf::Context::getFunction))
     {
-
-        return;
+        phys::showMessage(
+            "Failed to initialize GLAD (OpenGL loader)! Your GPU or drivers might not support the requested "
+            "OpenGL version.");
+        return false;
     }
 
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(MessageCallback, 0);
+
+    return true;
 }
 
 App::App(sf::VideoMode videoMode, std::string title, std::uint32_t style, sf::State state, sf::ContextSettings settings)
@@ -38,11 +41,15 @@ App::App(sf::VideoMode videoMode, std::string title, std::uint32_t style, sf::St
 {
     app_window.setVerticalSyncEnabled(true);
 
-    loadGlad();
+    if (!loadGlad())
+    {
+        this->app_window.close();
+        return;
+    }
 
     if (!ImGui::SFML::Init(this->app_window))
     {
-        showMessage("Unable to init SFML-ImGui!");
+        phys::showMessage("Unable to init SFML-ImGui!");
         return;
     }
 }
@@ -77,10 +84,14 @@ void App::_tick()
 {
     ImGui::SFML::Update(this->app_window, this->delta_clock.restart());
     this->tick();
-    ImGui::ShowDemoWindow();
-    ImGui::Begin("Debug Panel");
-    phys::updateDebug();
-    ImGui::End();
+
+    if (this->developer_mode)
+    {
+        ImGui::ShowDemoWindow();
+        ImGui::Begin("Debug Panel");
+        phys::updateDebug();
+        ImGui::End();
+    }
 }
 void App::_render()
 {

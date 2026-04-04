@@ -27,13 +27,14 @@ class SceneWidget : protected TextureWidget
     AppContext &context;
     Renderer renderer{context};
 
-  private:
     unsigned int selected_body_id{0};
-    std::pair<Body, Property> editing_pair{};
     phys::vec3d click_pos_world{};
 
     void updateInputs(ImVec2 cursor, phys::Universe &universe, sf::RenderTexture &texture,
                       unsigned int &selected_body_id, phys::vec3d &mouse_world);
+
+  private:
+    std::pair<Body, Property> editing_pair{};
 };
 
 class UniverseWidget : protected SceneWidget

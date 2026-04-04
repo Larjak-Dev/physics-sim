@@ -37,7 +37,7 @@ PhysicApp::PhysicApp(sf::ContextSettings settings)
     ImGui::SFML::UpdateFontTexture();
 
     // Variables
-    auto config = phys::createPerfectSatelite(1.0, 1.0, 10, 2.0);
+    auto config = phys::createKinematicScenario(phys::KinematicConfig());
     this->universe = std::make_shared<Universe>(phys::createUniverse(config));
 }
 
@@ -48,15 +48,15 @@ void PhysicApp::tick()
     buildDock(dock_id);
 
     ImGui::Begin("Slides");
-    if (ImGui::Button("Editor"))
+    if (ImGui::Button("Config"))
     {
         this->selected_slide = SlideType::Editor;
     }
-    if (ImGui::Button("Simulator"))
+    if (ImGui::Button("Real-Time"))
     {
         this->selected_slide = SlideType::Simulator;
     }
-    if (ImGui::Button("Player"))
+    if (ImGui::Button("Playback"))
     {
         this->selected_slide = SlideType::Player;
     }

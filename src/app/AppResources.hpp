@@ -15,7 +15,7 @@ class AppResources
 class GlResources
 {
   public:
-    static constexpr int grid_amount = 200;
+    static constexpr int grid_amount = 800;
     gl::ShaderMain mainShader{};
     gl::ShaderBasic shader_basic{};
     gl::ShaderBlur shader_blur{};
@@ -39,7 +39,9 @@ class GlResources
     gl::Texture stars;
     gl::Texture moon;
     gl::Texture earth_day;
+    gl::Texture earth_night;
     gl::Texture earth_clouds;
+    gl::Texture saturn_ring;
 
     GlResources();
 };

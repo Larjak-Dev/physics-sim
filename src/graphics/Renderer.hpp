@@ -6,9 +6,12 @@
 #include "GladWrap.hpp"
 #include "app/AppResources.hpp"
 #include <SFML/Graphics/RenderTarget.hpp>
+#include <memory>
+#include <vector>
 
 namespace phys
 {
+class Universe;
 
 struct Transform2D
 {
@@ -61,7 +64,10 @@ class Renderer
     void renderBodies(const Environment &env, const Camera &cam, float transarency = 1.0f,
                       Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
 
-    void renderGrids(double scale, const Camera &cam, float transarency = 1.0f,
+    void renderBodiesAmalgamated(const std::vector<std::shared_ptr<Universe>> &universes,
+                                 const std::vector<std::pair<float, Color>> &properties, const Camera &cam);
+
+    void renderGrids(double scale, const Camera &cam, float transarency = 1.0f, double y = 0.0,
                      Color color_small = Color(1.0f, 1.0f, 1.0f, 1.0f),
                      Color color_big = Color(0.5f, 0.5f, 0.5f, 1.0f));
 
@@ -70,7 +76,7 @@ class Renderer
   private:
     AppContext &context;
 
-    void renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &shader,
+    void renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &shader, double y = 0.0,
                       Color color = Color(1.0, 1.0, 1.0, 1.0), float transarency = 1.0f);
     void renderBodies2D(const Environment &env, const Camera &cam, gl::ShaderMain &shader);
 

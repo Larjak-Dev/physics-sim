@@ -32,7 +32,8 @@ void main()
     gl_Position = u_VP * vec4(vertex_pos,1.0);
     
     vec3 color = (vec3(u_color_ext) * u_color_ext.a) + (vec3(u_color) * (1.0-u_color_ext.a));
-    vertexColor = vec4(color, u_color.a * u_transparency);
+    float final_alpha = max(u_color.a, u_color_ext.a);
+    vertexColor = vec4(color, final_alpha);
     texCord = aTexCord;
 
     if(!u_fancy) {
