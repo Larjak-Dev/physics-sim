@@ -13,7 +13,9 @@ Features:
 * Multi threaded
 * Automatically import and simulate the solar system from NASA JPL Horizons API
 
-<img width="1261" height="1390" alt="image" src="https://github.com/user-attachments/assets/e86d75d8-fb2e-45cf-a9fe-47c1c86f4a29" />
+<img width="1261" height="1390" alt="screenshot-2026-04-04_02-42-46" src="https://github.com/user-attachments/assets/1993f8dc-6e91-4eff-bbe4-ae10657f30a1" />
+
+<img width="1261" height="1390" alt="screenshot-2026-04-04_02-43-25" src="https://github.com/user-attachments/assets/e06c1cf2-0d91-4a2f-843c-2c2e1d779bb0" />
 
 
 External Libraries:
