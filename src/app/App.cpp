@@ -36,10 +36,37 @@ bool loadGlad()
     return true;
 }
 
+#ifdef WIN32
+
+#include <dwmapi.h> // Required for Dark Mode attribute
+
+#pragma comment(lib, "dwmapi.lib") // Links the required Windows library
+
+void setDarkMode(sf::WindowHandle handle)
+{
+    BOOL useDarkMode = TRUE;
+    DwmSetWindowAttribute(handle,
+                          20, // DWMWA_USE_IMMERSIVE_DARK_MODE (Windows 10 1903/1909)
+                          &useDarkMode, sizeof(useDarkMode));
+
+    // For Windows 11 and newer versions of Windows 10
+    DwmSetWindowAttribute(handle,
+                          20, // Some versions use 19, newer use 20
+                          &useDarkMode, sizeof(useDarkMode));
+}
+
+#endif
+
+
 App::App(sf::VideoMode videoMode, std::string title, std::uint32_t style, sf::State state, sf::ContextSettings settings)
     : app_window(videoMode, title, style, state, settings)
 {
     app_window.setVerticalSyncEnabled(true);
+
+    #ifdef WIN32
+    setDarkMode(app_window.getNativeHandle());
+    #endif
+
 
     if (!loadGlad())
     {

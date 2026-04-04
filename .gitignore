@@ -3,3 +3,13 @@
 /compile_commands.json
 /out
 /docs/html
+.vs/
+out/
+build/
+*.user
+*.sln
+*.vcxproj
+*.filters
+CMakeCache.txt
+CMakeFiles/
+CMakeSettings.json

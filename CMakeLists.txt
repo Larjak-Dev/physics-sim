@@ -11,6 +11,14 @@ project(PhysicsSim
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+#STATICALLY LINKED
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+
+# For MSVC: Ensure the C/C++ Runtime is also linked statically (/MT instead of /MD)
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 #Fetch libraries
 include(FetchContent)
 
@@ -97,7 +105,7 @@ message(STATUS "Fetching imgui-sfml...")
 FetchContent_MakeAvailable(imgui-sfml)
 
 add_library(glad_loader STATIC external/glad/src/glad.c)
-target_include_directories(glad_loader PRIVATE
+target_include_directories(glad_loader PUBLIC
     "external/glad/include")
 
 
@@ -132,9 +140,10 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     nlohmann_json::nlohmann_json
     cpr::cpr
     OpenGL::GL
+    SFML::Main
     SFML::Graphics
     ImGui-SFML::ImGui-SFML
-    glm::glm
+    glm::glm-header-only
     OpenXLSX::OpenXLSX
     glad_loader
 )

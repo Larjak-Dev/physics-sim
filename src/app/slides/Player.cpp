@@ -15,7 +15,7 @@
 #include <imgui_internal.h>
 #include <memory>
 #include <ranges>
-#include <strings.h>
+
 using namespace phys::app;
 
 Player::Player(AppContext &context) : Slide(context)
