@@ -28,13 +28,15 @@ External Libraries:
 * Par (Shapes) https://github.com/prideout/par/tree/master  is under MIT License
 * IconsFontAwesome https://github.com/juliettef/IconFontCppHeaders is under zlib License
 * KHR https://github.com/KhronosGroup/EGL-Registry is under MIT License
-* This project uses the Horizons on-line solar system data service, provided by the Solar System Dynamics Group of the Jet Propulsion Laboratory. ![NASA](https://img.shields.io/badge/Data%20Source-NASA%20JPL-blue)
+
+API:
+* This project uses the Horizons on-line solar system data service, provided by the Solar System Dynamics Group of the Jet Propulsion Laboratory. Planetary data is cached to save on api calls! Thank you NASA! ![NASA](https://img.shields.io/badge/Data%20Source-NASA%20JPL-blue)
 
 Project Details:
-* Programmed in C++20 / 23 (As much as i can)
+* Programmed in C++20/23
 * Pretty much no AI written code!
 * Most code in this project was written in one week. (No joke)
-* But i had previously already written and planned out an scrapped app similar to this. 
+* But i had previously already written and planned out an scrapped app similar to this one. 
 
 
 Build Guide for windows:
