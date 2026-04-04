@@ -140,13 +140,16 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     nlohmann_json::nlohmann_json
     cpr::cpr
     OpenGL::GL
-    SFML::Main
     SFML::Graphics
     ImGui-SFML::ImGui-SFML
     glm::glm-header-only
     OpenXLSX::OpenXLSX
     glad_loader
 )
+
+if(TARGET SFML::Main)
+    target_link_libraries(${PROJECT_NAME} PRIVATE SFML::Main)
+endif()
 
 # 5. Resource Copying Logic
 set(RES_FOLDER "${CMAKE_CURRENT_SOURCE_DIR}/assets")
