@@ -1,17 +1,25 @@
 #include "Kinematics.hpp"
-#include "core/universe/Environment.hpp"
-#include "core/universe/PhysicConfig.hpp"
+#include "core/Environment.hpp"
+#include "core/PhysicConfig.hpp"
 #include "core/universe/Universe.hpp"
+#include "physics/KinematicConstants.hpp"
 using namespace phys;
 
 UniverseConfig phys::createKinematicScenario(KinematicConfig config)
 {
+    if (config.use_templated_physicfunctions)
+    {
+        config.acceleration = constants::ACCELERATION;
+        config.G = constants::GRAVITY_CONSTANT;
+    }
+
     switch (config.type)
     {
     case phys::ForceType::FreeFall:
     {
         auto uni_config = createFreeFall(config.acceleration);
         uni_config.total_time = config.time_fall;
+        uni_config.force_config.use_compiled_templates = config.use_templated_physicfunctions;
         return uni_config;
         break;
     }
@@ -19,6 +27,7 @@ UniverseConfig phys::createKinematicScenario(KinematicConfig config)
     {
         auto uni_config = createPerfectSatelite(config.G, config.mass_satelite, config.mass_planet, config.distance);
         uni_config.total_time = config.time_satelite;
+        uni_config.force_config.use_compiled_templates = config.use_templated_physicfunctions;
         return uni_config;
         break;
     }
@@ -63,8 +72,6 @@ Universe phys::createUniverse(const UniverseConfig config)
            "Non calculated config, you must use createFreeFall or createPerfectSatelite to create your config!");
 
     Universe universe;
-    Environment env;
-    env.config = config;
     Camera camera;
     switch (config.force_config.force_type)
     {
@@ -80,7 +87,7 @@ Universe phys::createUniverse(const UniverseConfig config)
         property_s.color = Color(1.0f, 0, 0, 1.0f);
         property_s.size = {2, 2, 2};
         property_s.name = "Subject";
-        env.addBody(body_s, property_s);
+        universe.addBody(body_s, property_s);
 
         universe.physicConfig.force_config.force_type = ForceType::FreeFall;
         universe.physicConfig.force_config.freefall_config.g = config.force_config.freefall_config.g;
@@ -119,9 +126,9 @@ Universe phys::createUniverse(const UniverseConfig config)
         property_planet.size = {distance * 0.4, distance * 0.4, distance * 0.4};
         property_planet.name = "Planet";
 
-        env.addBody(body_sat, property_sat);
+        universe.addBody(body_sat, property_sat);
 
-        env.addBody(body_planet, property_planet);
+        universe.addBody(body_planet, property_planet);
 
         universe.physicConfig.force_config.force_type = ForceType::Newtonian;
         universe.physicConfig.force_config.newtonian_config.G = config.force_config.newtonian_config.G;
@@ -137,8 +144,13 @@ Universe phys::createUniverse(const UniverseConfig config)
         assert(false && "Null?");
     }
     universe.physicConfig.step_config.total_time = config.total_time;
+    universe.physicConfig.force_config.use_compiled_templates = config.force_config.use_compiled_templates;
 
-    universe.env = std::make_shared<EnvironmentActive>(env);
+    auto env_snap = Environment(*universe.env);
+    env_snap.config = config;
+    phys::prepareEnvironment(env_snap, config, universe.physicConfig.step_config.delta_time);
+    universe.env->setEnvironment_safe(env_snap);
+
     universe.camera = std::make_shared<Camera>(camera);
     return universe;
 }
@@ -164,10 +176,10 @@ bool phys::checkKinematicValidityOfUniverse(const Universe &universe, UniverseCo
 
     // Environment check
     auto universeRef = std::make_shared<Universe>(createUniverse(config));
-    Environment envRef = static_cast<Environment>(*universeRef->env);
+    Environment envRef = Environment(*universeRef->env);
     prepareEnvironment(envRef, envRef.config, delta_time);
 
-    Environment env = static_cast<Environment>(*universe.env);
+    Environment env = Environment(*universe.env);
     prepareEnvironment(env, env.config, delta_time);
 
     if (envRef.bodies.size() != env.bodies.size())

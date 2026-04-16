@@ -1,8 +1,10 @@
 #pragma once
-#include "core/universe/Environment.hpp"
-#include "core/universe/Universe.hpp"
+#include "../core/Environment.hpp"
+#include "../core/PhysicConfig.hpp"
 #include <atomic>
 #include <condition_variable>
+#include <expected>
+#include <functional>
 #include <mutex>
 #include <sys/types.h>
 #include <thread>
@@ -20,17 +22,15 @@ class Recording
     uint32_t getCompletion() const;
 
     const std::vector<phys::EnvironmentBase> &getFrames() const;
-    const std::vector<phys::EnvironmentBase> &getKinematicFrames() const;
     void saveAsExcel();
 
-    std::unique_ptr<Universe> universe;
     double total_time;
+    std::function<void(const EnvironmentBase &)> on_step_callback;
 
   private:
     std::atomic_uint status{0};
     std::atomic_uint completion{0};
     std::vector<phys::EnvironmentBase> frames;
-    std::vector<phys::EnvironmentBase> frames_kinematic;
 
     friend Simulator;
 };
@@ -41,8 +41,10 @@ class Simulator
     Simulator();
     ~Simulator();
 
-    void startSim(std::shared_ptr<Universe> universe);
-    void startPreview(const Universe &universe, std::shared_ptr<Recording> recording);
+    std::expected<void, std::string> startSim(std::shared_ptr<EnvironmentActive> env, const PhysicConfig &physicConfig,
+                                              std::atomic<double> *speed_ref = nullptr);
+    std::expected<void, std::string> startPreview(const Environment &env, const PhysicConfig &physicConfig,
+                                                  std::shared_ptr<Recording> recording);
 
     void stopSim();
     void stopPreview();

@@ -1,8 +1,10 @@
 #pragma once
-#include "../../graphics/GladWrap.hpp"
-#include "../Units.hpp"
 #include "PhysicConfig.hpp"
+#include "Units_basic.hpp"
+#include <expected>
 #include <mutex>
+#include <optional>
+#include <string>
 #include <vector>
 
 namespace phys
@@ -25,23 +27,6 @@ struct Body
 
 using Bodies = std::vector<Body>;
 
-struct Property
-{
-    Color color{1.0f, 0, 0, 1.0f};
-    vec3d size{1.0, 1.0, 1.0};
-    gl::Texture *texture{nullptr};
-    gl::Texture *texture_dark{nullptr};
-    gl::Texture *texture_atmosphere{nullptr};
-    gl::Texture *texture_ring{nullptr};
-    float brightness{0.0};
-    std::string name{"Unknown"};
-    float tilt{0.0f};
-    float rotation_start{0.0f};
-    float rotation_velocity{0.0f};
-};
-
-using Properties = std::vector<Property>;
-
 //////////////////
 /// Environment
 //////////////////
@@ -58,15 +43,14 @@ struct EnvironmentBase
 
 struct Environment : public EnvironmentBase
 {
-    std::vector<Property> properties;
     UniverseConfig config;
 
     Environment() = default;
-    Environment(const EnvironmentBase &env, std::vector<Property> properties, UniverseConfig config);
+    Environment(const EnvironmentBase &env, UniverseConfig config);
     explicit Environment(const EnvironmentActive &envActive);
 
     uint16_t next_id{1};
-    void addBody(Body body, Property property);
+    void addBody(Body body);
 };
 
 ///////////////////
@@ -82,11 +66,10 @@ class EnvironmentActive
 
     void setEnvironment_safe(const EnvironmentBase &env);
     EnvironmentBase getEnvironment_safe();
-    std::vector<Property> &getProperties_ref();
 
-    std::pair<Body, Property> getBody(uint16_t bodyId);
-    bool setBody(uint16_t bodyId, std::pair<Body, Property> body);
-    void addBody(std::pair<Body, Property> body);
+    std::expected<std::pair<Body, int>, std::string> getBody(uint16_t bodyId);
+    std::expected<void, std::string> setBody(uint16_t bodyId, Body body);
+    void addBody(Body body);
 
   private:
     Environment env;

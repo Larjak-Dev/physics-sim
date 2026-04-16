@@ -1,9 +1,9 @@
 
 #include "app/slides/Editor.hpp"
 #include "app/widgets/extra.hpp"
+#include "core/PhysicConfig.hpp"
 #include "core/tools/Debug.hpp"
 #include "core/tools/Error.hpp"
-#include "core/universe/PhysicConfig.hpp"
 #include "physics/Kinematics.hpp"
 #include "physics/PlanetAPI.hpp"
 #include <imgui.h>
@@ -43,12 +43,6 @@ void Editor::tickKinematic(std::shared_ptr<Universe> &universe_main)
         {
         case phys::ForceType::FreeFall:
         {
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::Text("Acceleration");
-            ImGui::TableSetColumnIndex(1);
-            ImGui::SetNextItemWidth(-FLT_MIN);
-            ImGui::InputDouble("##acceleration", &kinematic_config.acceleration, 0, 0, "%.4e m/s^2");
 
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
@@ -56,23 +50,34 @@ void Editor::tickKinematic(std::shared_ptr<Universe> &universe_main)
             ImGui::TableSetColumnIndex(1);
             ImGui::SetNextItemWidth(-FLT_MIN);
             ImGui::InputDouble("##time_fall", &kinematic_config.time_fall, 0, 0, "%.4e s");
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("Custom Accel?:");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            CheckboxInverted("##iscustom", &kinematic_config.use_templated_physicfunctions);
+
+            if (!kinematic_config.use_templated_physicfunctions)
+            {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Acceleration");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                ImGui::InputDouble("##acceleration", &kinematic_config.acceleration, 0, 0, "%.4e m/s^2");
+            }
         }
         break;
         case phys::ForceType::Newtonian:
         {
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::Text("G");
-            ImGui::TableSetColumnIndex(1);
-            ImGui::SetNextItemWidth(-FLT_MIN);
-            ImGui::InputDouble("##G", &kinematic_config.G, 0, 0, "%.6e F/kg");
 
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
             ImGui::Text("Mass Planet");
             ImGui::TableSetColumnIndex(1);
             ImGui::SetNextItemWidth(-FLT_MIN);
-            ImGui::InputDouble("##mass_planet", &kinematic_config.mass_planet, 0, 0, "%.4e");
+            ImGui::InputDouble("##mass_planet", &kinematic_config.mass_planet, 0, 0, "%.4e kg");
 
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
@@ -87,6 +92,23 @@ void Editor::tickKinematic(std::shared_ptr<Universe> &universe_main)
             ImGui::TableSetColumnIndex(1);
             ImGui::SetNextItemWidth(-FLT_MIN);
             ImGui::InputDouble("##time_sat", &kinematic_config.time_satelite, 0, 0, "%.4e s");
+
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Text("Custom G?:");
+            ImGui::TableSetColumnIndex(1);
+            ImGui::SetNextItemWidth(-FLT_MIN);
+            CheckboxInverted("##iscustom", &kinematic_config.use_templated_physicfunctions);
+
+            if (!kinematic_config.use_templated_physicfunctions)
+            {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("G");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::SetNextItemWidth(-FLT_MIN);
+                ImGui::InputDouble("##G", &kinematic_config.G, 0, 0, "%.6e");
+            }
         }
         break;
         default:

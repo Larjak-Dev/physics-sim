@@ -40,6 +40,9 @@ struct ForceConfig
     ForceType force_type{ForceType::Null};
     NewtonianConfig newtonian_config;
     FreeFallConfig freefall_config;
+
+    // Compiled Templated Config
+    bool use_compiled_templates{false};
 };
 
 /////////////
@@ -78,16 +81,17 @@ struct StepConfig
     StepType step_type{StepType::Null};
     double delta_time{0.01};
     double total_time{10};
-
-    // Extra
     double speed{1.0};
 };
 
 /////////
-/// PhysicsConfig
+/// PhysicsConfig used as a config for generating PhysicsFunctions used for simulating
+/// ForceConfig, StepConfing are used to create modular realtime generated PhysicsFunctions.
+/// PhysicsConfig_TemplatedTypes are set to use a precompiled templated PhysicsFunction.
 /////////
 struct PhysicConfig
 {
+    // Modular Config
     ForceConfig force_config;
     StepConfig step_config;
 };

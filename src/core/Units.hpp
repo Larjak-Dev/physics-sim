@@ -1,11 +1,12 @@
 #pragma once
-#include <SFML/Graphics/Rect.hpp>
+#include <SFML/System/Vector2.hpp>
 #include <glm/common.hpp>
 #include <glm/detail/qualifier.hpp>
 #include <glm/fwd.hpp>
 #include <glm/geometric.hpp>
 #include <glm/matrix.hpp>
 #include <glm/vec2.hpp>
+#include <imgui.h>
 
 struct ImVec2;
 

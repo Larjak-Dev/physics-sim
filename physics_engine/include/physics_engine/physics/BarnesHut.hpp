@@ -1,5 +1,5 @@
 #pragma once
-#include "PhysicFunctions.hpp"
+#include "physics_functions/PhysicFunctions.hpp"
 
 namespace phys
 {

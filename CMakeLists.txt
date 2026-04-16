@@ -108,6 +108,8 @@ add_library(glad_loader STATIC external/glad/src/glad.c)
 target_include_directories(glad_loader PUBLIC
     "external/glad/include")
 
+add_subdirectory(physics_engine)
+
 
 # 2. Recursive Source Discovery
 file(GLOB_RECURSE PROJECT_SOURCES
@@ -137,6 +139,7 @@ find_package(OpenGL REQUIRED)
 
 # --- Link
 target_link_libraries(${PROJECT_NAME} PRIVATE
+    physics_engine
     nlohmann_json::nlohmann_json
     cpr::cpr
     OpenGL::GL

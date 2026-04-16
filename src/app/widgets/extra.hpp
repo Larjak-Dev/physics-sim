@@ -1,6 +1,6 @@
 #pragma once
-#include "imgui.h"
 #include "../../core/Units.hpp"
+#include "imgui.h"
 #include <glm/common.hpp>
 #include <vector>
 
@@ -9,8 +9,7 @@ namespace phys::app
 
 inline Color hueToRGB(float f)
 {
-    vec3f rgb =
-        glm::clamp(glm::abs(glm::mod(f * 6.0f + vec3f(0.0f, 4.0f, 2.0), 6.0f) - 3.0f) - 1.0f, 0.0f, 1.0f);
+    vec3f rgb = glm::clamp(glm::abs(glm::mod(f * 6.0f + vec3f(0.0f, 4.0f, 2.0), 6.0f) - 3.0f) - 1.0f, 0.0f, 1.0f);
     return Color(rgb.r, rgb.g, rgb.b, 1.0f);
 }
 
@@ -68,6 +67,15 @@ inline void drawTableInputD(const char *label, double *value, ImGuiInputTextFlag
     ImGui::TableNextColumn();
     ImGui::SetNextItemWidth(-1);
     ImGui::InputDouble("##x", value, 0.0, 0.0, format, flags);
+}
+
+inline bool CheckboxInverted(const char *label, bool *v)
+{
+    bool temp = !(*v);
+    bool pressed = ImGui::Checkbox(label, &temp);
+    if (pressed)
+        *v = !temp;
+    return pressed;
 }
 
 } // namespace phys::app

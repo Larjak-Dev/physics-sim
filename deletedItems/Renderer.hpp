@@ -59,10 +59,10 @@ class Renderer
 
     vec3d cordOnTargetToWorldCord(vec2f cord_on_target, const Camera &cam, double z, sf::RenderTarget &target);
     unsigned int cordOnTargetToBodyInWorld(vec2f cord_on_target, const Camera &cam, const EnvironmentBase &env,
-                                           const Properties &properties, sf::RenderTarget &target);
+                                           const std::vector<Property> &properties, sf::RenderTarget &target);
     void clear(Color background);
 
-    void renderBodies(const EnvironmentBase &env, const Properties &properties, const Camera &cam,
+    void renderBodies(const EnvironmentBase &env, const std::vector<Property> &properties, const Camera &cam,
                       float transarency = 1.0f, Color color_addon = Color(0.0f, 0.0f, 0.0f, 0.0f));
 
     void renderBodiesAmalgamated(const std::vector<std::shared_ptr<Universe>> &universes,
@@ -74,15 +74,12 @@ class Renderer
 
     void renderSkyBox(const gl::Texture &skybox, const Camera &cam, float transparency = 1.0f);
 
-    void renderGravityField(double distance, double z_level, float transparency, const EnvironmentBase &env,
-                            const Properties &properties, const Camera &cam);
-
   private:
     AppContext &context;
 
     void renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &shader, double y = 0.0,
                       Color color = Color(1.0, 1.0, 1.0, 1.0), float transarency = 1.0f);
-    void renderBodies2D(const EnvironmentBase &env, const Properties &properties, const Camera &cam,
+    void renderBodies2D(const EnvironmentBase &env, const std::vector<Property> &properties, const Camera &cam,
                         gl::ShaderMain &shader);
 
     // void render3D(sf::RenderTarget& target, sf::Vector2u size, const Environment& env, const Camera& cam);

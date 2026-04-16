@@ -1,7 +1,6 @@
-
-#include "Environment.hpp"
-#include "PhysicConfig.hpp"
-#include <vector>
+#include "core/Environment.hpp"
+#include <algorithm>
+#include <ranges>
 
 using namespace phys;
 
@@ -10,6 +9,7 @@ EnvironmentBase::EnvironmentBase(const Environment &env)
     this->bodies = env.bodies;
     this->passed_time = env.passed_time;
 }
+
 EnvironmentBase::EnvironmentBase(const EnvironmentActive &envActive)
 {
     std::lock_guard<std::mutex> mtxlock(envActive.mtx);
@@ -17,27 +17,23 @@ EnvironmentBase::EnvironmentBase(const EnvironmentActive &envActive)
     this->passed_time = envActive.env.passed_time;
 }
 
-Environment::Environment(const EnvironmentBase &env, const std::vector<Property> properties, UniverseConfig config)
+Environment::Environment(const EnvironmentBase &env, UniverseConfig config) : EnvironmentBase(env), config(config)
 {
-    this->bodies = env.bodies;
-    this->properties = properties;
-    this->passed_time = env.passed_time;
-    this->config = config;
 }
+
 Environment::Environment(const EnvironmentActive &envActive)
 {
     std::lock_guard<std::mutex> mtxlock(envActive.mtx);
     this->bodies = envActive.env.bodies;
-    this->properties = envActive.env.properties;
     this->passed_time = envActive.env.passed_time;
     this->config = envActive.env.config;
+    this->next_id = envActive.env.next_id;
 }
 
-void Environment::addBody(Body body, Property property)
+void Environment::addBody(Body body)
 {
     this->bodies.push_back(body);
     this->bodies.back().id = this->next_id++;
-    this->properties.push_back(property);
 }
 
 EnvironmentActive::EnvironmentActive(const EnvironmentActive &other)
@@ -62,54 +58,32 @@ EnvironmentBase EnvironmentActive::getEnvironment_safe()
     return EnvironmentBase(*this);
 }
 
-std::vector<Property> &EnvironmentActive::getProperties_ref()
-{
-    return this->env.properties;
-}
-
-std::pair<Body, Property> EnvironmentActive::getBody(uint16_t bodyId)
+std::expected<std::pair<Body, int>, std::string> EnvironmentActive::getBody(uint16_t bodyId)
 {
     std::lock_guard<std::mutex> mtxlock(this->mtx);
     auto body = std::ranges::find_if(this->env.bodies, [bodyId](auto &item) { return item.id == bodyId; });
     if (body != this->env.bodies.end())
     {
         int i = std::distance(env.bodies.begin(), body);
-        return {*body, this->env.properties[i]};
+        return std::make_pair(*body, i);
     }
-    return {Body(), Property()};
+    return std::unexpected("Body with ID " + std::to_string(bodyId) + " not found.");
 }
 
-bool EnvironmentActive::setBody(uint16_t bodyId, std::pair<Body, Property> pair)
+std::expected<void, std::string> EnvironmentActive::setBody(uint16_t bodyId, Body body_)
 {
     std::lock_guard<std::mutex> mtxlock(this->mtx);
     auto body = std::ranges::find_if(this->env.bodies, [bodyId](auto &item) { return item.id == bodyId; });
     if (body != this->env.bodies.end())
     {
-        auto &body_ = pair.first;
         *body = body_;
-        // body->is_locked = body_.is_locked;
-        // body->mass = body_.mass;
-        // body->pos = body_.pos;
-        // body->vel = body_.vel;
-
-        int i = std::distance(env.bodies.begin(), body);
-        auto &property = this->env.properties[i];
-        auto &property_ = pair.second;
-        property = property_;
-        // property.color = property_.color;
-        // property.size = property_.size;
-        // property.tilt = property_.tilt;
-        // property.rotation_start = property_.rotation_start;
-        // property.rotation_velocity = property_.rotation_velocity;
-
-        return true;
+        return {};
     }
-    return false;
+    return std::unexpected("Body with ID " + std::to_string(bodyId) + " not found.");
 }
 
-void EnvironmentActive::addBody(std::pair<Body, Property> pair)
+void EnvironmentActive::addBody(Body body)
 {
-
     std::lock_guard<std::mutex> mtxlock(this->mtx);
-    env.addBody(pair.first, pair.second);
+    env.addBody(body);
 }

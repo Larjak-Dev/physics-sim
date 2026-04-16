@@ -1,6 +1,7 @@
-#include "PhysicFunctions.hpp"
-#include "core/universe/Environment.hpp"
-#include "core/universe/PhysicConfig.hpp"
+#include "physics/physics_functions/PhysicFunctionsModular.hpp"
+#include "core/Environment.hpp"
+#include "core/PhysicConfig.hpp"
+#include <glm/geometric.hpp>
 #include <ranges>
 #include <vector>
 
@@ -17,7 +18,7 @@ void StepBuffer::buffer(std::size_t size)
     }
 }
 
-ForceFunction createNewtonianForceFunction(double G)
+ForceFunction phys::createNewtonianForceFunction(double G)
 {
     return ForceFunction(
         [G](vec3d pos, const Body &self, const EnvironmentBase &env)
@@ -35,7 +36,7 @@ ForceFunction createNewtonianForceFunction(double G)
         });
 }
 
-ForceFunction createFreeFallForceFunction(double g)
+ForceFunction phys::createFreeFallForceFunction(double g)
 {
     return ForceFunction(
         [g](vec3d pos, const Body &self, const EnvironmentBase &env)
@@ -47,7 +48,7 @@ ForceFunction createFreeFallForceFunction(double g)
         });
 }
 
-AccelerationFunction createAccelerationFunction(ForceFunction forceFunction)
+AccelerationFunction phys::createAccelerationFunction(ForceFunction forceFunction)
 {
     return AccelerationFunction(
         [forceFunction](vec3d pos, const Body &self, const EnvironmentBase &env)
@@ -76,7 +77,7 @@ Body implicitEulerBodyStep(const Body &body, double delta_time, const Environmen
     return body_new;
 }
 
-StepFunction createImplicitEulerStepFunction(AccelerationFunction accelerationFunction)
+StepFunction phys::createImplicitEulerStepFunction(AccelerationFunction accelerationFunction)
 {
     return StepFunction(
         [accelerationFunction](const EnvironmentBase &env, double delta_time, StepBuffer &buffer)
@@ -114,7 +115,7 @@ Body verletBodyStep(const Body &body, double delta_time, const EnvironmentBase &
     return body_new;
 }
 
-StepFunction createVerletStepFunction(AccelerationFunction accelerationFunction)
+StepFunction phys::createVerletStepFunction(AccelerationFunction accelerationFunction)
 {
     return StepFunction(
         [accelerationFunction](const EnvironmentBase &env, double delta_time, StepBuffer &buffer)
@@ -185,7 +186,7 @@ EnvironmentBase advanceWithSum(const EnvironmentBase &start, const std::vector<D
     return env;
 }
 
-StepFunction createRK4StepFunction(AccelerationFunction accelerationFunction)
+StepFunction phys::createRK4StepFunction(AccelerationFunction accelerationFunction)
 {
     return StepFunction(
         [accelerationFunction](const EnvironmentBase &env, double delta_time, StepBuffer &buffer)
@@ -211,41 +212,4 @@ StepFunction createRK4StepFunction(AccelerationFunction accelerationFunction)
             env_new.passed_time += delta_time;
             return env_new;
         });
-}
-
-// Config
-
-PhysicFunctions::PhysicFunctions(PhysicConfig config)
-{
-
-    switch (config.force_config.force_type)
-    {
-    case phys::ForceType::FreeFall:
-        this->force = createFreeFallForceFunction(config.force_config.freefall_config.g);
-        break;
-    case phys::ForceType::Newtonian:
-        this->force = createNewtonianForceFunction(config.force_config.newtonian_config.G);
-        break;
-    default:
-        assert(false && "Unvalid physics config!");
-        break;
-    }
-
-    this->acceleration = createAccelerationFunction(this->force);
-
-    switch (config.step_config.step_type)
-    {
-    case phys::StepType::ImplicitEuler:
-        this->step = createImplicitEulerStepFunction(this->acceleration);
-        break;
-    case phys::StepType::Verlet:
-        this->step = createVerletStepFunction(this->acceleration);
-        break;
-    case phys::StepType::RK4:
-        this->step = createRK4StepFunction(this->acceleration);
-        break;
-    default:
-        assert(false && "Unvalid physics config!");
-        break;
-    }
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include "../core/Units.hpp"
 #include <SFML/Graphics/RenderTarget.hpp>
+#include <cstdint>
 #include <string>
 
 struct par_shapes_mesh_s;
@@ -67,6 +68,23 @@ class FrameBuffer
     vec2u size{0, 0};
 };
 
+class ShaderStorageBuffer
+{
+  public:
+    ShaderStorageBuffer();
+    ~ShaderStorageBuffer();
+
+    ShaderStorageBuffer(const ShaderStorageBuffer &other) = delete;
+    ShaderStorageBuffer &operator=(const ShaderStorageBuffer &) = delete;
+
+    void store(std::size_t size, const void *data);
+    void use(uint32_t index) const;
+
+  private:
+    uint32_t SSBO{0};
+    std::size_t current_size{0};
+};
+
 class Shader
 {
   public:
@@ -78,9 +96,17 @@ class Shader
     Shader &operator=(const Shader &) = delete;
 
     void use() const;
+    virtual void use_() const;
 
   private:
     uint32_t shader_program{0};
+};
+
+struct Body_shader
+{
+    alignas(16) vec3f pos;
+    float mass;
+    alignas(16) vec3f color;
 };
 
 class ShaderMain : public Shader
@@ -104,6 +130,8 @@ class ShaderMain : public Shader
     void setSunPosition(vec3f pos);
     void setFancy(bool isFancy);
     void setMatrixNormal(mat4f normal_matrix);
+
+  private:
 };
 class ShaderBasic : public Shader
 {
@@ -128,6 +156,27 @@ class ShaderCombine : public Shader
 
     void setTexture1(Texture &texture);
     void setTexture2(Texture &texture);
+};
+
+class ShaderField : public Shader
+{
+  public:
+    ShaderField();
+    ~ShaderField();
+
+    void setMatrixVP(mat4f view_projection);
+    void setMatrixV(mat4f view);
+    void setMatrixM(mat4f model);
+    void setMinG(float g);
+    void setMaxG(float g);
+    void setTransparency(float a);
+    void setBodyCount(int count);
+    void setBodies(std::vector<Body_shader> bodies);
+
+    void use_() const override;
+
+  private:
+    ShaderStorageBuffer bodies_buffer;
 };
 
 class VertexArray

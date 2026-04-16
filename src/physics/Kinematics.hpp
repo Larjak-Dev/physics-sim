@@ -1,22 +1,25 @@
 #pragma once
-#include "core/universe/Environment.hpp"
-#include "core/universe/PhysicConfig.hpp"
+#include "core/PhysicConfig.hpp"
 #include "core/universe/Universe.hpp"
+#include "physics/KinematicConstants.hpp"
 
 namespace phys
 {
 
 struct KinematicConfig
 {
-    phys::ForceType type{phys::ForceType::Newtonian};
-    double G{6.67430e-11};
-    double mass_satelite{1000};
-    double mass_planet{5.972e24};
-    double distance{6.771e6};
-    double acceleration{9.81};
+    phys::ForceType type{constants::ENVIRONMENT_TYPE};
+    double mass_satelite{constants::MASS_SATELITE};
+    double mass_planet{constants::MASS_PLANET};
+    double distance{constants::DISTANCE_SATELITE};
 
-    double time_satelite{5600 * 2.0};
-    double time_fall{5};
+    bool use_templated_physicfunctions{true}; // Will disable custom G/acceleration modifications. If you want to change
+                                              // template G/acceleration constants check KinematicConstants.hpp
+    double G{constants::GRAVITY_CONSTANT};
+    double acceleration{constants::ACCELERATION};
+
+    double time_satelite{constants::TIME_SATELITE};
+    double time_fall{constants::TIME_FALL};
 };
 
 UniverseConfig createKinematicScenario(KinematicConfig config);

@@ -20,6 +20,7 @@ class GlResources
     gl::ShaderBasic shader_basic{};
     gl::ShaderBlur shader_blur{};
     gl::ShaderCombine shader_combine{};
+    gl::ShaderField shader_field{};
 
     gl::VertexArray sphere{};
     gl::VertexArray grid{};

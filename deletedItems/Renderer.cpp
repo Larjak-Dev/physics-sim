@@ -1,33 +1,65 @@
 #include "Renderer.hpp"
-#include "GladWrap.hpp"
 #include "app/AppResources.hpp"
 #include "core/Environment.hpp"
-#include "core/Units.hpp"
 #include "core/tools/Debug.hpp"
 #include "core/universe/Camera.hpp"
-#include "core/universe/Property.hpp"
 #include "core/universe/Universe.hpp"
 #include <SFML/Graphics/RenderTarget.hpp>
-#include <SFML/Graphics/Text.hpp>
-#include <SFML/System/Vector2.hpp>
-#include <cmath>
+#include <SFML/Window/Window.hpp>
 #include <glad.h>
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
-#include <glm/ext/matrix_clip_space.hpp>
-#include <glm/ext/matrix_transform.hpp>
-#include <glm/ext/scalar_constants.hpp>
-#include <glm/gtc/constants.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <glm/matrix.hpp>
-#include <limits>
 #include <ranges>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/intersect.hpp>
 
-#include "core/tools/Debug.hpp"
 using namespace phys;
+
+Transform2D::Transform2D()
+{
+}
+
+void Transform2D::recalculate(const Camera &cam, vec2u res)
+{
+    this->camera = cam;
+    this->res = res;
+
+    float aspect = static_cast<float>(res.x) / static_cast<float>(res.y);
+
+    // Standard view
+    this->v = glm::lookAt(vec3f(0.0f, 0.0f, cam.distance), vec3f(0.0f, 0.0f, 0.0f), vec3f(0.0f, 1.0f, 0.0f));
+    this->v_inverse = glm::inverse(this->v);
+
+    this->p = glm::perspective(glm::radians(45.0f), aspect, 0.1f, 10000.0f);
+    // Reversed-Z for better precision at distance
+    // this->p = glm::perspective(glm::radians(45.0f), aspect, 10000.0f, 0.1f);
+    this->p_inverse = glm::inverse(this->p);
+
+    this->vp = this->p * this->v;
+    this->vp_inverse = glm::inverse(this->vp);
+
+    // Skybox view (no translation)
+    this->v_skybox = glm::mat4(glm::mat3(this->v));
+    this->p_skybox = this->p;
+    this->vp_skybox = this->p_skybox * this->v_skybox;
+
+    this->delta_transform = -cam.center;
+}
+
+vec3f Transform2D::apply(vec3d v)
+{
+    auto v_scene = v + this->delta_transform;
+    auto v_clip = this->vp * vec4f(v_scene, 1.0f);
+    return vec3f(v_clip) / v_clip.w;
+}
+
+vec3d Transform2D::inverse(vec3f v)
+{
+    auto v_scene_4 = this->vp_inverse * vec4f(v, 1.0f);
+    auto v_scene = vec3d(v_scene_4) / static_cast<double>(v_scene_4.w);
+    return v_scene - this->delta_transform;
+}
 
 Renderer::Renderer(AppContext &context) : context(context)
 {
@@ -36,109 +68,36 @@ Renderer::Renderer(AppContext &context) : context(context)
 Renderer::Renderer(const Renderer &other) : context(other.context)
 {
     this->transform2D = other.transform2D;
-    this->target = nullptr;
-    if (other.target)
-    {
-        this->frameBuffer.resize(other.target->getSize());
-    }
+    this->target = other.target;
 }
 
 Renderer &Renderer::operator=(const Renderer &other)
 {
-    if (this == &other)
-        return *this;
     this->transform2D = other.transform2D;
-    this->target = nullptr;
-    if (other.target)
-    {
-        this->frameBuffer.resize(other.target->getSize());
-    }
+    this->target = other.target;
     return *this;
 }
 
-Transform2D::Transform2D()
+void Renderer::activate(sf::RenderTarget &target)
 {
+    assert(!this->target);
+    this->target = &target;
+    if (!target.setActive(true))
+    {
+        return;
+    }
 }
 
-void Transform2D::recalculate(const Camera &cam, vec2u res)
+void Renderer::deactivate()
 {
-    bool changed = false;
-    if (this->camera != cam)
-    {
-        auto eye = static_cast<vec3f>(cam.getEye() - cam.center);
-
-        this->delta_transform = -cam.center;
-
-        // The camera's Local Up is determined by rotating the global Y axis
-        // (Because you pull the camera back along the Z axis)
-        vec3f up = cam.getRotationMatrix() * vec4f(0.0f, 1.0f, 0.0f, 0.0f);
-
-        this->v = glm::lookAt(eye, vec3f(0.0, 0.0, 0.0), up);
-        this->v_inverse = glm::inverse(this->v);
-        changed = true;
-
-        // SkyBox
-        vec3f center_delta = -eye;
-        this->v_skybox = glm::lookAt(vec3f(0.0f, 0.0, 0.0f), center_delta, vec3f(up));
-    }
-    if (this->res != res || this->camera != cam)
-    {
-        vec2f resf = vec2f(res);
-        auto distance = static_cast<float>(cam.distance);
-
-        if (!cam.settings.is_render_perspective)
-        {
-            auto sv = static_cast<float>(distance) * resf / 300.0f;
-            this->p =
-                glm::orthoLH_ZO(-sv.x / 2.0f, sv.x / 2.0f, -sv.y / 2.0f, sv.y / 2.0f, -distance * 8, distance * 8);
-        }
-        else
-        {
-            float fov_rad = static_cast<float>(cam.settings.fov * PI / 180.0);
-            float aspect = resf.x / resf.y;
-            float zNear = static_cast<float>(distance) / 30.0f;
-            float f = 1.0f / std::tan(fov_rad / 2.0f);
-
-            this->p = mat4f(0.0f);
-            this->p[0][0] = f / aspect;
-            this->p[1][1] = f;
-            this->p[2][2] = 0.0f;
-            this->p[2][3] = -1.0f;
-            this->p[3][2] = zNear;
-        }
-        this->p_inverse = glm::inverse(this->p);
-        changed = true;
-
-        // SkyBox
-        this->p_skybox =
-            glm::perspective(glm::half_pi<float>(), static_cast<float>(res.x) / static_cast<float>(res.y), 0.01f, 2.0f);
-    }
-    if (changed)
-    {
-        this->vp = this->p * this->v;
-        this->vp_inverse = glm::inverse(this->vp);
-        this->vp_skybox = this->p_skybox * this->v_skybox;
-    }
-    this->camera = cam;
-    this->res = res;
-}
-
-vec3f Transform2D::apply(vec3d pos)
-{
-    vec4f res = this->vp * vec4f(pos + this->delta_transform, 1.0f);
-    return vec3f(res.x / res.w, res.y / res.w, res.z / res.w);
-}
-vec3d Transform2D::inverse(vec3f pos)
-{
-    vec4f res = this->vp_inverse * vec4f(pos, 1.0f);
-    return vec3d(res.x / res.w, res.y / res.w, res.z / res.w) - this->delta_transform;
+    assert(this->target);
+    this->target->setActive(false);
+    this->target = nullptr;
 }
 
 vec3d Renderer::cordOnTargetToWorldCord(vec2f cord_on_target, const Camera &cam, double z, sf::RenderTarget &target)
 {
-
     this->transform2D.recalculate(cam, target.getSize());
-
     vec2f screen_size = vec2f(vec2u(target.getSize()));
     vec2f gl_cord = 2.0f * cord_on_target / screen_size - 1.0f;
     vec3d world_cord = this->transform2D.inverse({gl_cord.x, -gl_cord.y, z});
@@ -146,7 +105,7 @@ vec3d Renderer::cordOnTargetToWorldCord(vec2f cord_on_target, const Camera &cam,
 }
 
 unsigned int Renderer::cordOnTargetToBodyInWorld(vec2f cord_on_target, const Camera &cam, const EnvironmentBase &env,
-                                                 const Properties &properties, sf::RenderTarget &target)
+                                                 const std::vector<Property> &properties, sf::RenderTarget &target)
 {
     auto ray_start = cordOnTargetToWorldCord(cord_on_target, cam, 1.0, target);
     auto ray_end = cordOnTargetToWorldCord(cord_on_target, cam, 0.5, target);
@@ -155,17 +114,10 @@ unsigned int Renderer::cordOnTargetToBodyInWorld(vec2f cord_on_target, const Cam
 
     double selected_distance = std::numeric_limits<double>::max();
     const Body *selected_body = nullptr;
-    for (auto &&[body, property] : std::views::zip(env.bodies, properties))
+
+    for (auto &&[body, prop] : std::views::zip(env.bodies, properties))
     {
-        double radius = property.size.x;
-        if (cam.settings.is_fixed_body_size)
-        {
-            radius = 1 * cam.distance * cam.settings.fixed_size / 12.0;
-        }
-        else if (cam.settings.is_scaled_body_size)
-        {
-            radius = property.size.x * cam.settings.body_scale;
-        }
+        double radius = prop.size.x;
         double distance = 0.0f;
         if (glm::intersectRaySphere(ray_start, ray_delta_norm, body.pos, radius * radius, distance) &&
             distance < selected_distance)
@@ -190,9 +142,16 @@ void Renderer::clear(Color background)
 
     float depthVal = 0.0f; // Far for Reversed-Z
     glClearNamedFramebufferfv(this->frameBuffer.fbo_id, GL_DEPTH, 0, &depthVal);
+
+    if (this->target)
+    {
+        this->target->clear(sf::Color(static_cast<int>(background.r * 255.0f), static_cast<int>(background.g * 255.0f),
+                                      static_cast<int>(background.b * 255.0f),
+                                      static_cast<int>(background.a * 255.0f)));
+    }
 }
 
-void Renderer::renderBodies(const EnvironmentBase &env, const Properties &properties, const Camera &cam,
+void Renderer::renderBodies(const EnvironmentBase &env, const std::vector<Property> &properties, const Camera &cam,
                             float transparency, Color color_addon)
 {
     assert(this->target);
@@ -205,7 +164,6 @@ void Renderer::renderBodies(const EnvironmentBase &env, const Properties &proper
     auto &shader = resources_gl.mainShader;
     auto &shader_blur = resources_gl.shader_blur;
     auto &shader_combine = resources_gl.shader_combine;
-    auto &shader_basic = resources_gl.shader_basic;
     auto &quad = resources_gl.quad;
 
     // Render bodies
@@ -254,9 +212,11 @@ void Renderer::renderBodies(const EnvironmentBase &env, const Properties &proper
     shader_combine.use();
     quad.render();
 
+    // Final Render to target
     this->target->setActive(true);
-    shader_basic.setTexture(this->frameBuffer.texture_2);
-    shader_basic.use();
+    glViewport(0, 0, viewport.x, viewport.y);
+    this->context.resources_gl.shader_basic.setTexture(this->frameBuffer.texture_2);
+    this->context.resources_gl.shader_basic.use();
     quad.render();
 }
 
@@ -273,7 +233,6 @@ void Renderer::renderBodiesAmalgamated(const std::vector<std::shared_ptr<Univers
     auto &shader = resources_gl.mainShader;
     auto &shader_blur = resources_gl.shader_blur;
     auto &shader_combine = resources_gl.shader_combine;
-    auto &shader_basic = resources_gl.shader_basic;
     auto &quad = resources_gl.quad;
 
     // Render bodies
@@ -286,15 +245,12 @@ void Renderer::renderBodiesAmalgamated(const std::vector<std::shared_ptr<Univers
     // Render each universe in the amalgamation
     for (auto &&[i, universe] : std::views::enumerate(universes))
     {
-        auto env = static_cast<Environment>(*universe->env);
-        assert(universe->properties.size() >= env.bodies.size());
         if (!universe || !universe->env)
             continue;
 
         shader.setTransparency(properties[i].first);
         shader.setColorExt(properties[i].second);
-        renderBodies2D(env, universe->properties, cam,
-                       shader); // TODO: MAYBE BUG ON PROPERTIES
+        renderBodies2D(universe->env->getEnvironment_safe(), universe->properties, cam, shader);
     }
 
     glDepthMask(GL_TRUE);
@@ -338,17 +294,12 @@ void Renderer::renderBodiesAmalgamated(const std::vector<std::shared_ptr<Univers
     shader_combine.use();
     quad.render();
 
+    // Final Render to target
     this->target->setActive(true);
-
-    // Enable blending for final amalgamation composite so it adds to previously rendered scene!
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    shader_basic.setTexture(this->frameBuffer.texture_2);
-    shader_basic.use();
+    glViewport(0, 0, viewport.x, viewport.y);
+    this->context.resources_gl.shader_basic.setTexture(this->frameBuffer.texture_2);
+    this->context.resources_gl.shader_basic.use();
     quad.render();
-
-    glDisable(GL_BLEND);
 }
 
 void Renderer::renderSkyBox(const gl::Texture &skybox, const Camera &cam, float transparency)
@@ -425,52 +376,6 @@ ModelTransform getModelTransform(const vec4d pos_world, const vec4d size_world, 
     return {model, normal};
 }
 
-void Renderer::renderGravityField(double distance, double z_level, float transparency, const EnvironmentBase &env,
-                                  const Properties &properties, const Camera &cam)
-{
-    assert(this->target);
-
-    auto &target = *this->target;
-    auto viewport = target.getSize();
-    glViewport(0, 0, viewport.x, viewport.y);
-    this->frameBuffer.resize(target.getSize());
-
-    auto &resources_gl = context.resources_gl;
-    auto &shader = resources_gl.shader_field;
-    auto &quad = resources_gl.quad;
-
-    // Prepare SSBO data
-    std::vector<gl::Body_shader> body_shaders;
-    body_shaders.reserve(env.bodies.size());
-    for (size_t i = 0; i < env.bodies.size(); ++i)
-    {
-        gl::Body_shader bs;
-        bs.pos = vec3f(env.bodies[i].pos + this->transform2D.delta_transform);
-        bs.mass = static_cast<float>(env.bodies[i].mass);
-        bs.color = vec3f(properties[i].color.r, properties[i].color.g, properties[i].color.b);
-        body_shaders.push_back(bs);
-    }
-
-    this->transform2D.recalculate(cam, viewport);
-
-    shader.setMatrixVP(this->transform2D.vp);
-    shader.setMatrixV(this->transform2D.v);
-    auto model = getModelTransform(vec4d(vec3d(cam.center.x, cam.center.y, z_level), 1),
-                                   vec4d(distance, distance, 0, 0), 0, 0, this->transform2D);
-    shader.setMatrixM(model.model_transform);
-    shader.setMinG(1.0e-9f); // "Noise floor" - below this is transparent
-    shader.setMaxG(1.0f);    // "Ceiling" - above this is opaque
-    shader.setBodyCount(static_cast<int>(body_shaders.size()));
-    shader.setBodies(body_shaders);
-    shader.setTransparency(transparency);
-
-    this->frameBuffer.activate(gl::FrameBuffer::Slot_1, 0, 0, 0);
-    this->frameBuffer.activate_zdepth();
-    shader.use();
-    quad.render();
-    this->frameBuffer.deactive_zdepth();
-}
-
 void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &shader, double grid_z, Color color,
                             float transparency)
 {
@@ -502,7 +407,7 @@ void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &
     vertexArrayGrid.renderLines();
 }
 
-void Renderer::renderBodies2D(const EnvironmentBase &env, const Properties &properties, const Camera &cam,
+void Renderer::renderBodies2D(const EnvironmentBase &env, const std::vector<Property> &properties, const Camera &cam,
                               gl::ShaderMain &shader)
 {
     assert(properties.size() >= env.bodies.size());
@@ -595,24 +500,4 @@ void Renderer::renderBodies2D(const EnvironmentBase &env, const Properties &prop
 
         vertexArray.render();
     }
-}
-
-void Renderer::activate(sf::RenderTarget &target)
-{
-    assert(!this->target);
-    this->target = &target;
-    if (!target.setActive(true))
-    {
-        return;
-    }
-    target.pushGLStates();
-}
-
-void Renderer::deactivate()
-{
-    assert(this->target);
-    glUseProgram(0);
-
-    target->popGLStates();
-    this->target = nullptr;
 }

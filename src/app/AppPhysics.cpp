@@ -1,6 +1,6 @@
 #include "AppPhysics.hpp"
 #include "app/AppResources.hpp"
-#include "core/universe/PhysicConfig.hpp"
+#include "core/PhysicConfig.hpp"
 #include "physics/Kinematics.hpp"
 #include <ImGuiUtils.h>
 #include <SFML/Window/ContextSettings.hpp>

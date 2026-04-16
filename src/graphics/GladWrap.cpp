@@ -229,6 +229,11 @@ GLuint Shader::getShaderHandle() const
 void Shader::use() const
 {
     glUseProgram(this->shader_program);
+    this->use_();
+}
+
+void Shader::use_() const
+{
 }
 
 ShaderBasic::ShaderBasic() : Shader("assets/shader_basic.vert", "assets/shader_basic.frag")
@@ -322,6 +327,41 @@ void ShaderMain::setMatrixNormal(mat4f normal_matrix)
     glProgramUniformMatrix4fv(this->getShaderHandle(), 19, 1, GL_FALSE, glm::value_ptr(normal_matrix));
 }
 
+ShaderStorageBuffer::ShaderStorageBuffer()
+{
+}
+
+ShaderStorageBuffer::~ShaderStorageBuffer()
+{
+    glDeleteBuffers(1, &this->SSBO);
+}
+
+void ShaderStorageBuffer::store(std::size_t size, const void *data)
+{
+    if (this->SSBO == 0)
+    {
+        glCreateBuffers(1, &this->SSBO);
+        glNamedBufferData(this->SSBO, size, data, GL_DYNAMIC_DRAW);
+        this->current_size = size;
+    }
+    else if (size > this->current_size)
+    {
+        // Reallocate only if the new data is larger than the current buffer
+        glNamedBufferData(this->SSBO, size, data, GL_DYNAMIC_DRAW);
+        this->current_size = size;
+    }
+    else
+    {
+        // Update existing buffer
+        glNamedBufferSubData(this->SSBO, 0, size, data);
+    }
+}
+
+void ShaderStorageBuffer::use(uint32_t index) const
+{
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, index, this->SSBO);
+}
+
 ShaderBlur::ShaderBlur() : Shader("assets/shader_basic.vert", "assets/shader_blur.frag")
 {
     glProgramUniform1i(this->getShaderHandle(), 0, 0);
@@ -349,6 +389,58 @@ void ShaderCombine::setTexture1(Texture &texture)
 void ShaderCombine::setTexture2(Texture &texture)
 {
     texture.bindUnit(1);
+}
+
+ShaderField::ShaderField() : Shader("assets/shader_field.vert", "assets/shader_field.frag")
+{
+}
+
+ShaderField::~ShaderField()
+{
+}
+
+void ShaderField::setMatrixVP(mat4f view_projection)
+{
+    glProgramUniformMatrix4fv(this->getShaderHandle(), 0, 1, GL_FALSE, glm::value_ptr(view_projection));
+}
+
+void ShaderField::setMatrixV(mat4f view)
+{
+    glProgramUniformMatrix4fv(this->getShaderHandle(), 4, 1, GL_FALSE, glm::value_ptr(view));
+}
+
+void ShaderField::setMatrixM(mat4f model)
+{
+    glProgramUniformMatrix4fv(this->getShaderHandle(), 8, 1, GL_FALSE, glm::value_ptr(model));
+}
+
+void ShaderField::setMinG(float g)
+{
+    glProgramUniform1f(this->getShaderHandle(), 9, g);
+}
+void ShaderField::setMaxG(float g)
+{
+    glProgramUniform1f(this->getShaderHandle(), 10, g);
+}
+
+void ShaderField::setBodyCount(int count)
+{
+    glProgramUniform1i(this->getShaderHandle(), 11, count);
+}
+
+void ShaderField::setBodies(std::vector<Body_shader> bodies)
+{
+    this->bodies_buffer.store(bodies.size() * sizeof(Body_shader), bodies.data());
+}
+
+void ShaderField::use_() const
+{
+    this->bodies_buffer.use(0);
+}
+
+void ShaderField::setTransparency(float a)
+{
+    glProgramUniform1f(this->getShaderHandle(), 12, a);
 }
 
 VertexArray::VertexArray()

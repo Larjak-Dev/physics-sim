@@ -1,7 +1,8 @@
 #include "PlanetAPI.hpp"
+#include "core/PhysicConfig.hpp"
 #include "core/tools/Error.hpp"
-#include "core/universe/PhysicConfig.hpp"
 #include "graphics/GladWrap.hpp"
+#include "physics/KinematicConstants.hpp"
 #include <cpr/cpr.h>
 #include <filesystem>
 #include <format>
@@ -392,28 +393,29 @@ SolarSystemResult PlanetAPI::fetchSolarSystem()
     auto &universe_1 = result.universe_1;
     auto &universe_2 = result.universe_2;
 
-    universe_1.env->addBody({moon.body_1, moon.prop});
+    universe_1.addBody(moon.body_1, moon.prop);
 
-    universe_1.env->addBody({mercury.body_1, mercury.prop});
-    universe_1.env->addBody({venus.body_1, venus.prop});
-    universe_1.env->addBody({earth.body_1, earth.prop});
-    universe_1.env->addBody({mars.body_1, mars.prop});
-    universe_1.env->addBody({jupiter.body_1, jupiter.prop});
-    universe_1.env->addBody({saturn.body_1, saturn.prop});
-    universe_1.env->addBody({uranus.body_1, uranus.prop});
-    universe_1.env->addBody({neptune.body_1, neptune.prop});
+    universe_1.addBody(mercury.body_1, mercury.prop);
+    universe_1.addBody(venus.body_1, venus.prop);
+    universe_1.addBody(earth.body_1, earth.prop);
+    universe_1.addBody(mars.body_1, mars.prop);
+    universe_1.addBody(jupiter.body_1, jupiter.prop);
+    universe_1.addBody(saturn.body_1, saturn.prop);
+    universe_1.addBody(uranus.body_1, uranus.prop);
+    universe_1.addBody(neptune.body_1, neptune.prop);
 
-    universe_1.env->addBody({sun.body_1, sun.prop});
+    universe_1.addBody(sun.body_1, sun.prop);
 
     universe_1.camera->distance = 2.30e11;
     universe_1.camera->settings.is_fixed_body_size = true;
     universe_1.camera->settings.fixed_size = 0.8;
     universe_1.physicConfig.force_config.force_type = ForceType::Newtonian;
-    universe_1.physicConfig.force_config.newtonian_config.G = 6.67430e-11;
+    universe_1.physicConfig.force_config.newtonian_config.G = constants::GRAVITY_CONSTANT;
 
     universe_1.physicConfig.step_config.delta_time = 86400.0 / 4.0;
     universe_1.physicConfig.step_config.total_time = this->total_days * 86400.0;
     universe_1.physicConfig.step_config.speed = 86400.0 * 4.0;
+    universe_1.physicConfig.force_config.use_compiled_templates = true;
 
     return result;
 }

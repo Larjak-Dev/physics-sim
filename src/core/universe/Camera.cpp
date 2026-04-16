@@ -1,4 +1,5 @@
 #include "Camera.hpp"
+#include "core/Units.hpp"
 #include <glm/ext/matrix_transform.hpp>
 
 using namespace phys;
@@ -10,6 +11,8 @@ mat4d Camera::getRotationMatrix() const
     rotation_matrix = glm::rotate(rotation_matrix, this->x_angle, vec3d(1.0, 0.0, 0.0));
     return rotation_matrix;
 }
+
+vec3d e;
 
 vec3d Camera::getEye() const
 {

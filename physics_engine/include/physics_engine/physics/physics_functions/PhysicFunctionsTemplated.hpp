@@ -1,7 +1,8 @@
 #pragma once
-#include "core/Units.hpp"
-#include "core/universe/Environment.hpp"
-#include "physics/PhysicsStepBuffer.hpp"
+#include "../../core/Environment.hpp"
+#include "../../core/Units_basic.hpp"
+#include "PhysicStepBuffer.hpp"
+#include <glm/geometric.hpp>
 #include <ranges>
 
 namespace phys
@@ -55,7 +56,7 @@ template <auto AccelFunc> Body implicitEulerBodyStep(const Body &body, double de
 }
 
 template <auto AccelFunc>
-EnvironmentBase implicitEulerStepFunc(EnvironmentBase env, double delta_time, StepBuffer &buffer)
+EnvironmentBase implicitEulerStepFunc(const EnvironmentBase &env, double delta_time, StepBuffer &buffer)
 {
     EnvironmentBase env_new;
     for (const Body &body : env.bodies)
@@ -84,7 +85,8 @@ template <auto AccelFunc> Body verletBodyStep(const Body &body, double delta_tim
     return body_new;
 }
 
-template <auto AccelFunc> EnvironmentBase VerletStep(const EnvironmentBase &env, double delta_time, StepBuffer &buffer)
+template <auto AccelFunc>
+EnvironmentBase verletStepFunc(const EnvironmentBase &env, double delta_time, StepBuffer &buffer)
 {
     EnvironmentBase env_new;
     for (const Body &body : env.bodies)
@@ -146,7 +148,7 @@ inline EnvironmentBase advanceWithSum(const EnvironmentBase &start, const std::v
     return env;
 }
 
-template <auto AccelFunc> EnvironmentBase stepRK4(const EnvironmentBase &env, double delta_time, StepBuffer &buffer)
+template <auto AccelFunc> EnvironmentBase RK4StepFunc(const EnvironmentBase &env, double delta_time, StepBuffer &buffer)
 {
     buffer.buffer(env.bodies.size());
     auto &derivates_1 = buffer.der_1;

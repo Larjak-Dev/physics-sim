@@ -1,8 +1,9 @@
 #include "Scene.hpp"
 #include "SFML/Graphics/Font.hpp"
 #include "app/AppResources.hpp"
+#include "core/Environment.hpp"
 #include "core/Units.hpp"
-#include "core/universe/Environment.hpp"
+#include "core/tools/Error.hpp"
 #include "core/universe/Universe.hpp"
 #include "extra.hpp"
 #include <SFML/Graphics/Texture.hpp>
@@ -116,9 +117,10 @@ void SceneWidget::updateInputs(ImVec2 cursor, phys::Universe &universe, sf::Rend
                 vec2f item_pos = ImGui::GetItemRectMin();
 
                 auto mouse_pos_item = mouse_pos_global - item_pos;
-                auto env = static_cast<Environment>(*universe.env);
-                selected_body_id =
-                    this->renderer.cordOnTargetToBodyInWorld(mouse_pos_item, *universe.camera, env, texture);
+                auto env = universe.env->getEnvironment_safe();
+                selected_body_id = this->renderer.cordOnTargetToBodyInWorld(mouse_pos_item, *universe.camera,
+                                                                            universe.env->getEnvironment_safe(),
+                                                                            universe.properties, texture);
             }
         }
 
@@ -128,8 +130,10 @@ void SceneWidget::updateInputs(ImVec2 cursor, phys::Universe &universe, sf::Rend
             vec2f mouse_pos_global = ImGui::GetIO().MousePos;
             vec2f item_pos = ImGui::GetItemRectMin();
             auto mouse_pos_item = mouse_pos_global - item_pos;
-            auto env = static_cast<Environment>(*universe.env);
-            if (auto body_id = this->renderer.cordOnTargetToBodyInWorld(mouse_pos_item, *universe.camera, env, texture))
+            auto env = universe.env->getEnvironment_safe();
+            if (auto body_id = this->renderer.cordOnTargetToBodyInWorld(mouse_pos_item, *universe.camera,
+                                                                        universe.env->getEnvironment_safe(),
+                                                                        universe.properties, texture))
             {
                 selected_body_id = body_id;
                 ImGui::OpenPopup("Body");
@@ -174,16 +178,19 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
 
     // update texture widget
     TextureWidget::update();
-    if (should_clear)
-        this->texture.clear();
+    // if (should_clear)
+    //     this->texture.clear();
     updateInputs(cursor, universe, texture, this->selected_body_id, this->click_pos_world);
 
     auto &cam = *universe.camera;
     if (cam.settings.locked_body_id)
     {
-        auto body_pair = universe.env->getBody(cam.settings.locked_body_id);
-        auto &body = body_pair.first;
-        cam.center = body.pos;
+        auto res = universe.getBody(cam.settings.locked_body_id);
+        if (res)
+        {
+            auto &body = res->first;
+            cam.center = body.pos;
+        }
     }
 
     /////////////////////
@@ -199,14 +206,17 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
     const float GRID_TRANSPARENCY = 1.0f;
     const float GRID_SCALE = 1.0f;
 
+    const float FIELD_TRANSPARENCY = 0.5f;
+
+    auto pair_selected = universe.getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
+    auto body_selected = pair_selected.first;
+
     this->renderer.activate(this->texture);
     this->renderer.clear(BACKGROUND_COLOR);
     if (cam.settings.is_render_stars)
         this->renderer.renderSkyBox(SKYBOX, *universe.camera, SKYBOX_TRANSPARENCY);
     if (cam.settings.is_render_grid)
     {
-        auto pair_selected = universe.env->getBody(this->selected_body_id);
-        auto body_selected = pair_selected.first;
         if (body_selected.id != 0)
         {
             this->renderer.renderGrids(GRID_SCALE, *universe.camera, GRID_TRANSPARENCY, body_selected.pos.z,
@@ -218,7 +228,10 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
                                        GRID_COLOR_BIG);
         }
     }
-    this->renderer.renderBodies(static_cast<Environment>(*universe.env), *universe.camera);
+    auto env = universe.env->getEnvironment_safe();
+    this->renderer.renderGravityField(universe.camera->distance * 8, body_selected.pos.z, FIELD_TRANSPARENCY, env,
+                                      universe.properties, *universe.camera);
+    this->renderer.renderBodies(env, universe.properties, *universe.camera);
     this->renderer.deactivate();
 
     ///////////////////
@@ -325,7 +338,7 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
 
     ImGui::Begin("Bodies");
     {
-        auto env = static_cast<Environment>(*universe.env);
+        auto env = universe.env->getEnvironment_safe();
 
         ImGuiTableFlags flags =
             ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchProp;
@@ -333,7 +346,7 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         {
             ImGui::TableSetupColumn("BodyName", ImGuiTableColumnFlags_WidthStretch);
 
-            for (auto &&[body, prop] : std::views::zip(env.bodies, env.properties))
+            for (auto &&[body, prop] : std::views::zip(env.bodies, universe.properties))
             {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
@@ -355,7 +368,7 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         ImGui::Begin("Selection");
         {
             // Selected body
-            auto pair_selected = universe.env->getBody(this->selected_body_id);
+            auto pair_selected = universe.getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
             auto &body_selected = pair_selected.first;
             auto &body_property = pair_selected.second;
             if (body_selected.id != 0)
@@ -409,7 +422,7 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         {
             if (ImGui::Button("Edit"))
             {
-                this->editing_pair = universe.env->getBody(this->selected_body_id);
+                this->editing_pair = universe.getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
                 ImGui::OpenPopup("Edit_Pop");
             };
 
@@ -536,7 +549,11 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
                 }
                 if (ImGui::Button("Configure"))
                 {
-                    universe.env->setBody(selected_body_id, this->editing_pair);
+                    auto res = universe.setBody(selected_body_id, this->editing_pair);
+                    if (!res)
+                    {
+                        phys::showMessage(res.error().c_str());
+                    }
                     ImGui::CloseCurrentPopup();
                 };
                 ImGui::SameLine();
@@ -555,7 +572,7 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         {
             if (ImGui::Button("Summon"))
             {
-                this->editing_pair = universe.env->getBody(1);
+                this->editing_pair = universe.getBody(1).value_or(std::pair<Body, Property>{});
                 this->editing_pair.first.pos = this->click_pos_world;
                 this->editing_pair.first.pos.z = 0.0;
                 ImGui::OpenPopup("Summon");
@@ -681,7 +698,7 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
 
                 if (ImGui::Button("Confirm"))
                 {
-                    universe.env->addBody(editing_pair);
+                    universe.addBody(editing_pair.first, editing_pair.second);
                     ImGui::CloseCurrentPopup();
                 };
                 ImGui::SameLine();
@@ -698,7 +715,7 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
 
     if (cam.settings.locked_body_id != 0)
     {
-        auto pair_selected = universe.env->getBody(this->selected_body_id);
+        auto pair_selected = universe.getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
         auto body_selected = pair_selected.first;
         auto property_selected = pair_selected.second;
         cam.settings.minimum_camera_distance = property_selected.size.z;
@@ -793,7 +810,7 @@ void AlmagationWidget::update()
     // update texture widget
     TextureWidget::update();
     this->texture.clear();
-    
+
     // We only need basic inputs and floating window layout from the base update,
     // but SceneWidget::update does rendering. We have to bypass it and do our own.
     updateInputs(cursor, *this->universe, texture, this->selected_body_id, this->click_pos_world);
@@ -801,9 +818,12 @@ void AlmagationWidget::update()
     auto &cam = *universes[0]->camera;
     if (cam.settings.locked_body_id)
     {
-        auto body_pair = universe->env->getBody(cam.settings.locked_body_id);
-        auto &body = body_pair.first;
-        cam.center = body.pos;
+        auto res = universe->getBody(cam.settings.locked_body_id);
+        if (res)
+        {
+            auto &body = res->first;
+            cam.center = body.pos;
+        }
     }
 
     const Color BACKGROUND_COLOR = Color::Black;
@@ -817,28 +837,27 @@ void AlmagationWidget::update()
 
     this->renderer.activate(this->texture);
     this->renderer.clear(BACKGROUND_COLOR);
-    
+
     if (cam.settings.is_render_stars)
         this->renderer.renderSkyBox(SKYBOX, cam, SKYBOX_TRANSPARENCY);
-        
+
     if (cam.settings.is_render_grid)
     {
-        auto pair_selected = universe->env->getBody(this->selected_body_id);
+        auto pair_selected = universe->getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
         auto body_selected = pair_selected.first;
         if (body_selected.id != 0)
         {
-            this->renderer.renderGrids(GRID_SCALE, cam, GRID_TRANSPARENCY, body_selected.pos.z,
-                                       GRID_COLOR_SMALL, GRID_COLOR_BIG);
+            this->renderer.renderGrids(GRID_SCALE, cam, GRID_TRANSPARENCY, body_selected.pos.z, GRID_COLOR_SMALL,
+                                       GRID_COLOR_BIG);
         }
         else
         {
-            this->renderer.renderGrids(GRID_SCALE, cam, GRID_TRANSPARENCY, 0, GRID_COLOR_SMALL,
-                                       GRID_COLOR_BIG);
+            this->renderer.renderGrids(GRID_SCALE, cam, GRID_TRANSPARENCY, 0, GRID_COLOR_SMALL, GRID_COLOR_BIG);
         }
     }
 
     this->renderer.renderBodiesAmalgamated(this->universes, this->properties, cam);
-    
+
     this->renderer.deactivate();
 
     ///////////////////
@@ -922,7 +941,7 @@ void AlmagationWidget::update()
         ImGui::EndChild();
         ImGui::PopFont();
     }
-    
+
     ImGui::PopStyleColor();
     ImGui::EndChild();
 
@@ -931,12 +950,14 @@ void AlmagationWidget::update()
     /////////////////
     ImGui::Begin("Bodies");
     {
-        auto env = static_cast<Environment>(*universe->env);
-        ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchProp;
+        auto env = universe->env->getEnvironment_safe();
+        auto &properties = universe->properties;
+        ImGuiTableFlags flags =
+            ImGuiTableFlags_RowBg | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_SizingStretchProp;
         if (ImGui::BeginTable("##BodiesTable", 1, flags))
         {
             ImGui::TableSetupColumn("BodyName", ImGuiTableColumnFlags_WidthStretch);
-            for (auto &&[body, prop] : std::views::zip(env.bodies, env.properties))
+            for (auto &&[body, prop] : std::views::zip(env.bodies, properties))
             {
                 ImGui::TableNextRow();
                 ImGui::TableNextColumn();
@@ -959,7 +980,7 @@ void AlmagationWidget::update()
     /////////////////
     ImGui::Begin("Selection");
     {
-        auto pair_selected = universe->env->getBody(this->selected_body_id);
+        auto pair_selected = universe->getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
         auto &body_selected = pair_selected.first;
         auto &body_property = pair_selected.second;
         if (body_selected.id != 0)
@@ -1007,7 +1028,7 @@ void AlmagationWidget::update()
 
     if (cam.settings.locked_body_id != 0)
     {
-        auto pair_selected = universe->env->getBody(this->selected_body_id);
+        auto pair_selected = universe->getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
         auto property_selected = pair_selected.second;
         cam.settings.minimum_camera_distance = property_selected.size.z;
     }

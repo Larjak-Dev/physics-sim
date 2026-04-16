@@ -1,7 +1,8 @@
 #include "Simulator.hpp"
 #include "app/widgets/extra.hpp"
+#include "core/PhysicConfig.hpp"
 #include "core/tools/Debug.hpp"
-#include "core/universe/PhysicConfig.hpp"
+#include "core/tools/Error.hpp"
 #include "imgui.h"
 #include <utility>
 using namespace phys::app;
@@ -54,7 +55,9 @@ void Simulator::tickRightBar()
         ImGui::TableSetColumnIndex(1);
         ImGui::SetNextItemWidth(-FLT_MIN);
         static const std::vector<std::pair<phys::StepType, const char *>> methods = {
-            {phys::StepType::ImplicitEuler, "Implicit Euler"}, {phys::StepType::Verlet, "Verlet"}, {phys::StepType::RK4, "RK4"}};
+            {phys::StepType::ImplicitEuler, "Implicit Euler"},
+            {phys::StepType::Verlet, "Verlet"},
+            {phys::StepType::RK4, "RK4"}};
         EnumCombo("##method", this->universe->physicConfig.step_config.step_type, methods);
 
         float btn_width = ImGui::GetFrameHeight() * 1.8f;
@@ -121,7 +124,11 @@ void Simulator::tickRightBar()
     if (!this->physic_sim.isRunningSim() && ImGui::Button("Start"))
     {
         this->universe_sim = std::make_shared<Universe>(this->universe->copy());
-        this->physic_sim.startSim(this->universe_sim);
+        auto res = this->physic_sim.startSim(this->universe_sim->env, this->universe_sim->physicConfig);
+        if (!res)
+        {
+            phys::showMessage(res.error().c_str());
+        }
     }
     if (this->physic_sim.isRunningSim() && ImGui::Button("Stop"))
     {

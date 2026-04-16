@@ -11,6 +11,8 @@ layout (location = 32) uniform bool hasDarkTexture;
 layout (location = 33) uniform sampler2D ourTextureAtmosphere;
 layout (location = 34) uniform bool hasAtmosphereTexture;
 
+
+
 layout (location = 0) out vec4 FragColor;
 layout (location = 1) out vec4 BrightColor;
 
