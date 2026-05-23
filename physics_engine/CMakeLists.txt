@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.5)
-project(physics_engine LANGUAGES CXX)
+project(physics_engine
+    VERSION 3.0.0
+    LANGUAGES CXX
+)
 
 
 file(GLOB_RECURSE PROJECT_SOURCES

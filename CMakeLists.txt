@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.24) # Upgraded to 3.24 for better FetchContent 
 
 # 1. Project Setup
 project(PhysicsSim
-    VERSION 1.0.0
+    VERSION 3.0.0
     LANGUAGES C CXX
 )
 
