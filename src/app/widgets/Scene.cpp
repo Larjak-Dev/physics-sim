@@ -178,11 +178,6 @@ void SceneWidget::update(phys::Universe &universe)
     cursor = ImGui::GetCursorPos();
     cam = universe.camera.get();
 
-    // update texture widget
-    TextureWidget::update();
-    updateInputs(cursor, universe, texture, this->selected_body_id, this->click_pos_world);
-    this->updateTexture(universe);
-
     if (cam->settings.locked_body_id)
     {
         auto res = universe.getBody(cam->settings.locked_body_id);
@@ -192,6 +187,11 @@ void SceneWidget::update(phys::Universe &universe)
             cam->center = body.pos;
         }
     }
+
+    // update texture widget
+    TextureWidget::update();
+    updateInputs(cursor, universe, texture, this->selected_body_id, this->click_pos_world);
+    this->updateTexture(universe);
 
     ImGui::SetCursorPos(cursor);
     ImGui::BeginChild("ViewChild", ImVec2(VIEWCHILD_WIDTH, VIEWCHILD_HEIGHT));
