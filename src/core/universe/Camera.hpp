@@ -20,6 +20,7 @@ struct CameraSettings
     bool is_render_grid{true};
     bool is_render_fancy{false};
     bool is_render_perspective{false};
+    bool is_render_gravity_field{false};
 
     float fov{90};
 };

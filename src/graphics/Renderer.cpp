@@ -63,7 +63,8 @@ Transform2D::Transform2D()
 void Transform2D::recalculate(const Camera &cam, vec2u res)
 {
     bool changed = false;
-    if (this->camera != cam)
+    bool settings_changes = this->camera.settings.is_render_perspective != cam.settings.is_render_perspective;
+    if (this->camera != cam || settings_changes)
     {
         auto eye = static_cast<vec3f>(cam.getEye() - cam.center);
 
@@ -81,7 +82,7 @@ void Transform2D::recalculate(const Camera &cam, vec2u res)
         vec3f center_delta = -eye;
         this->v_skybox = glm::lookAt(vec3f(0.0f, 0.0, 0.0f), center_delta, vec3f(up));
     }
-    if (this->res != res || this->camera != cam)
+    if (this->res != res || this->camera != cam || settings_changes)
     {
         vec2f resf = vec2f(res);
         auto distance = static_cast<float>(cam.distance);
@@ -185,8 +186,8 @@ void Renderer::clear(Color background)
 {
     this->frameBuffer.texture_1.clear(background);
     this->frameBuffer.texture_2.clear(Color::Transparent);
-    this->frameBuffer.texture_3.clear(Color::Transparent);
-    this->frameBuffer.texture_4.clear(Color::Transparent);
+    // this->frameBuffer.texture_3.clear(Color::Transparent);
+    // this->frameBuffer.texture_4.clear(Color::Transparent);
 
     float depthVal = 0.0f; // Far for Reversed-Z
     glClearNamedFramebufferfv(this->frameBuffer.fbo_id, GL_DEPTH, 0, &depthVal);
@@ -216,48 +217,59 @@ void Renderer::renderBodies(const EnvironmentBase &env, const Properties &proper
     renderBodies2D(env, properties, cam, shader);
     this->frameBuffer.deactive_zdepth();
 
-    //////// Blur
-    auto blur_res = viewport / 6u;
-    glViewport(0, 0, blur_res.x, blur_res.y);
-    this->frameBuffer_blur.resize(blur_res);
+    if (cam.settings.is_render_fancy)
+    {
 
-    // Horizontal Blur
-    this->frameBuffer_blur.texture_1.clear(Color::Transparent);
-    this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_1, 0, 0, 0);
-    shader_blur.setTexture(this->frameBuffer.texture_2);
-    shader_blur.setIsVertical(false);
-    shader_blur.use();
-    quad.render();
+        //////// Blur
+        auto blur_res = viewport / 6u;
+        glViewport(0, 0, blur_res.x, blur_res.y);
+        this->frameBuffer_blur.resize(blur_res);
 
-    // Vertical Blur
-    this->frameBuffer_blur.texture_2.clear(Color::Transparent);
-    this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
-    shader_blur.setTexture(this->frameBuffer_blur.texture_1);
-    shader_blur.setIsVertical(false);
-    shader_blur.use();
-    quad.render();
+        // Horizontal Blur
+        this->frameBuffer_blur.texture_1.clear(Color::Transparent);
+        this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_1, 0, 0, 0);
+        shader_blur.setTexture(this->frameBuffer.texture_2);
+        shader_blur.setIsVertical(false);
+        shader_blur.use();
+        quad.render();
 
-    this->frameBuffer_blur.texture_3.clear(Color::Transparent);
-    this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_3, 0, 0, 0);
-    shader_blur.setTexture(this->frameBuffer_blur.texture_2);
-    shader_blur.setIsVertical(true);
-    shader_blur.use();
-    quad.render();
+        // Vertical Blur
+        this->frameBuffer_blur.texture_2.clear(Color::Transparent);
+        this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
+        shader_blur.setTexture(this->frameBuffer_blur.texture_1);
+        shader_blur.setIsVertical(false);
+        shader_blur.use();
+        quad.render();
 
-    // Combine Blur
-    glViewport(0, 0, viewport.x, viewport.y);
+        this->frameBuffer_blur.texture_3.clear(Color::Transparent);
+        this->frameBuffer_blur.activate(gl::FrameBuffer::Slot_3, 0, 0, 0);
+        shader_blur.setTexture(this->frameBuffer_blur.texture_2);
+        shader_blur.setIsVertical(true);
+        shader_blur.use();
+        quad.render();
 
-    this->frameBuffer.texture_2.clear(Color::Transparent);
-    this->frameBuffer.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
-    shader_combine.setTexture1(this->frameBuffer.texture_1);
-    shader_combine.setTexture2(this->frameBuffer_blur.texture_3);
-    shader_combine.use();
-    quad.render();
+        // Combine Blur
+        glViewport(0, 0, viewport.x, viewport.y);
 
-    this->target->setActive(true);
-    shader_basic.setTexture(this->frameBuffer.texture_2);
-    shader_basic.use();
-    quad.render();
+        this->frameBuffer.texture_2.clear(Color::Transparent);
+        this->frameBuffer.activate(gl::FrameBuffer::Slot_2, 0, 0, 0);
+        shader_combine.setTexture1(this->frameBuffer.texture_1);
+        shader_combine.setTexture2(this->frameBuffer_blur.texture_3);
+        shader_combine.use();
+        quad.render();
+
+        this->target->setActive(true);
+        shader_basic.setTexture(this->frameBuffer.texture_2);
+        shader_basic.use();
+        quad.render();
+    }
+    else
+    {
+        this->target->setActive(true);
+        shader_basic.setTexture(this->frameBuffer.texture_1);
+        shader_basic.use();
+        quad.render();
+    }
 }
 
 void Renderer::renderBodiesAmalgamated(const std::vector<std::shared_ptr<Universe>> &universes,
@@ -395,8 +407,8 @@ void Renderer::renderGrids(double scale, const Camera &cam, float transparency, 
     this->frameBuffer.activate(gl::FrameBuffer::Slot_1, gl::FrameBuffer::Slot_2, 0, 0);
     this->frameBuffer.activate_zdepth();
     this->renderGrid2D(exponant_1, cam, shader, grid_y, color_small, transparency);
-    this->renderGrid2D(exponant_2, cam, shader, grid_y, color_big, transparency);
     this->frameBuffer.deactive_zdepth();
+    this->renderGrid2D(exponant_2, cam, shader, grid_y + 1, color_big, transparency);
 
     // Debug
     phys::showDebugF("Exponent: {}", exponant_1);
@@ -464,11 +476,15 @@ void Renderer::renderGravityField(double distance, double z_level, float transpa
     shader.setBodies(body_shaders);
     shader.setTransparency(transparency);
 
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     this->frameBuffer.activate(gl::FrameBuffer::Slot_1, 0, 0, 0);
-    this->frameBuffer.activate_zdepth();
+    this->frameBuffer.deactive_zdepth();
     shader.use();
     quad.render();
-    this->frameBuffer.deactive_zdepth();
+
+    glDisable(GL_BLEND);
 }
 
 void Renderer::renderGrid2D(double exponant, const Camera &cam, gl::ShaderMain &shader, double grid_z, Color color,
@@ -605,14 +621,16 @@ void Renderer::activate(sf::RenderTarget &target)
     {
         return;
     }
-    target.pushGLStates();
 }
 
 void Renderer::deactivate()
 {
     assert(this->target);
     glUseProgram(0);
+    glBindVertexArray(0);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
 
-    target->popGLStates();
     this->target = nullptr;
 }

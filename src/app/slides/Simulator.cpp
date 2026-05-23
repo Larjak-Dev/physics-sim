@@ -4,6 +4,7 @@
 #include "core/tools/Debug.hpp"
 #include "core/tools/Error.hpp"
 #include "imgui.h"
+#include "physics/Kinematics.hpp"
 #include <utility>
 using namespace phys::app;
 

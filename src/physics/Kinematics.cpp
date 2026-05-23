@@ -261,18 +261,21 @@ Body phys::calcBody(UniverseConfig config, double time)
     }
 }
 
+void phys::prepareBody(Body &body, double delta_time)
+{
+    body.prev_pos = body.pos - body.vel * delta_time;
+}
+
 void phys::prepareEnvironment(EnvironmentBase &env, UniverseConfig config, double delta_time)
 {
+    for (Body &body : env.bodies)
+    {
+        prepareBody(body, delta_time);
+    }
+
     if (config.is_calculated)
     {
         auto prev_body = calcBody(config, -delta_time);
         env.bodies[0].prev_pos = prev_body.pos;
-    }
-    if (!config.is_calculated)
-    {
-        for (Body &body : env.bodies)
-        {
-            body.prev_pos = body.pos - body.vel * delta_time;
-        }
     }
 }

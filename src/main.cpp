@@ -28,6 +28,6 @@ int main()
 
     app.start();
 
-    std::cout << "Ap closed!\n";
+    std::cout << "App closed!\n";
     return 0;
 }

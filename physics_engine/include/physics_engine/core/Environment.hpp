@@ -70,6 +70,7 @@ class EnvironmentActive
     std::expected<std::pair<Body, int>, std::string> getBody(uint16_t bodyId);
     std::expected<void, std::string> setBody(uint16_t bodyId, Body body);
     void addBody(Body body);
+    UniverseConfig getUniverseConfig();
 
   private:
     Environment env;

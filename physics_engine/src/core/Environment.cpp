@@ -87,3 +87,9 @@ void EnvironmentActive::addBody(Body body)
     std::lock_guard<std::mutex> mtxlock(this->mtx);
     env.addBody(body);
 }
+
+UniverseConfig EnvironmentActive::getUniverseConfig()
+{
+    return this->env.config;
+
+}

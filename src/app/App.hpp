@@ -13,7 +13,7 @@ class App
     App(sf::VideoMode videoMode, std::string title, std::uint32_t style, sf::State state, sf::ContextSettings settings);
     void start();
 
-    bool developer_mode{false};
+    bool developer_mode{true};
 
   protected:
     // Init Opengl

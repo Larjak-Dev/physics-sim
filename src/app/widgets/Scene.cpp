@@ -4,10 +4,13 @@
 #include "core/Environment.hpp"
 #include "core/Units.hpp"
 #include "core/tools/Error.hpp"
+#include "core/universe/Property.hpp"
 #include "core/universe/Universe.hpp"
 #include "extra.hpp"
+#include "physics/Kinematics.hpp"
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/System/Vector2.hpp>
+#include <cfloat>
 #include <cmath>
 #include <glm/gtc/constants.hpp>
 #include <imgui-SFML.h>
@@ -159,7 +162,7 @@ void SceneWidget::updateInputs(ImVec2 cursor, phys::Universe &universe, sf::Rend
     }
 }
 
-void SceneWidget::update(phys::Universe &universe, bool should_clear)
+void SceneWidget::update(phys::Universe &universe)
 {
     if (!universe.env)
     {
@@ -172,50 +175,67 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         return;
     }
 
-    auto cursor = ImGui::GetCursorPos();
-    auto &resources_gl = this->context.resources_gl;
-    auto &resources_app = this->context.resources_app;
+    cursor = ImGui::GetCursorPos();
+    cam = universe.camera.get();
 
     // update texture widget
     TextureWidget::update();
-    // if (should_clear)
-    //     this->texture.clear();
     updateInputs(cursor, universe, texture, this->selected_body_id, this->click_pos_world);
+    this->updateTexture(universe);
 
-    auto &cam = *universe.camera;
-    if (cam.settings.locked_body_id)
+    if (cam->settings.locked_body_id)
     {
-        auto res = universe.getBody(cam.settings.locked_body_id);
+        auto res = universe.getBody(cam->settings.locked_body_id);
         if (res)
         {
             auto &body = res->first;
-            cam.center = body.pos;
+            cam->center = body.pos;
         }
     }
 
+    ImGui::SetCursorPos(cursor);
+    ImGui::BeginChild("ViewChild", ImVec2(VIEWCHILD_WIDTH, VIEWCHILD_HEIGHT));
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(VIEWCHILD_BACKGROUND.r, VIEWCHILD_BACKGROUND.g,
+                                                   VIEWCHILD_BACKGROUND.b, VIEWCHILD_BACKGROUND.a));
+    this->updateViewportFloating(universe);
+    this->updateRenderingFloating(universe);
+
+    ImGui::PopStyleColor();
+    ImGui::EndChild();
+
+    this->updateSelectionWin(universe);
+    this->updateBodiesWin(universe);
+
+    this->updateBodyPopup(universe);
+    this->updateWorldPopup(universe);
+
+    if (cam->settings.locked_body_id != 0)
+    {
+        auto pair_selected = universe.getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
+        auto body_selected = pair_selected.first;
+        auto property_selected = pair_selected.second;
+        cam->settings.minimum_camera_distance = property_selected.size.z;
+    }
+    else
+    {
+        cam->settings.minimum_camera_distance = 0.0;
+    }
+}
+
+void SceneWidget::updateTexture(Universe &universe)
+{
     /////////////////////
     /// Rendering Graphics
     /////////////////////
-
-    const Color BACKGROUND_COLOR = Color::Black;
-    const gl::Texture &SKYBOX = resources_gl.stars;
-    const float SKYBOX_TRANSPARENCY = 0.5f;
-
-    const Color GRID_COLOR_SMALL = Color(0.5f, 0.5, 0.5, 1.0f);
-    const Color GRID_COLOR_BIG = Color(1.0f, 1.0, 1.0, 1.0f);
-    const float GRID_TRANSPARENCY = 1.0f;
-    const float GRID_SCALE = 1.0f;
-
-    const float FIELD_TRANSPARENCY = 0.5f;
 
     auto pair_selected = universe.getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
     auto body_selected = pair_selected.first;
 
     this->renderer.activate(this->texture);
     this->renderer.clear(BACKGROUND_COLOR);
-    if (cam.settings.is_render_stars)
+    if (cam->settings.is_render_stars)
         this->renderer.renderSkyBox(SKYBOX, *universe.camera, SKYBOX_TRANSPARENCY);
-    if (cam.settings.is_render_grid)
+    if (cam->settings.is_render_grid)
     {
         if (body_selected.id != 0)
         {
@@ -229,28 +249,18 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         }
     }
     auto env = universe.env->getEnvironment_safe();
-    this->renderer.renderGravityField(universe.camera->distance * 8, body_selected.pos.z, FIELD_TRANSPARENCY, env,
-                                      universe.properties, *universe.camera);
+
+    if (universe.camera->settings.is_render_gravity_field)
+        this->renderer.renderGravityField(universe.camera->distance * 8, body_selected.pos.z, FIELD_TRANSPARENCY, env,
+                                          universe.properties, *universe.camera);
     this->renderer.renderBodies(env, universe.properties, *universe.camera);
     this->renderer.deactivate();
+}
 
-    ///////////////////
-    // ViewChild (FloatingWindow)
-    //////////////////
-
-    const float VIEWCHILD_WIDTH = 160;
-    const float VIEWCHILD_HEIGHT = 350;
-    const Color VIEWCHILD_BACKGROUND = Color(0.2f, 0.2f, 0.2f, 0.5f);
-    ImFont *VIEWCHILD_FONT = resources_app.font_small;
-
-    auto &camera = *universe.camera;
-    ImGui::SetCursorPos(cursor);
-    ImGui::BeginChild("ViewChild", ImVec2(VIEWCHILD_WIDTH, VIEWCHILD_HEIGHT));
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(VIEWCHILD_BACKGROUND.r, VIEWCHILD_BACKGROUND.g,
-                                                   VIEWCHILD_BACKGROUND.b, VIEWCHILD_BACKGROUND.a));
+void SceneWidget::updateViewportFloating(Universe &universe)
+{
     // Viewport child
 
-    const float VIEWCHILD_ITEM_WIDTH = 150;
     const float VIEWPORT_HEIGHT = 100;
 
     if (ImGui::CollapsingHeader("Viewport"))
@@ -262,27 +272,28 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
 
         drawTableLabel("X:");
-        ImGui::InputDouble("##X", &universe.camera->center.x, 0.0, 0.0, "%.2e");
+        ImGui::InputDouble("##X", &cam->center.x, 0.0, 0.0, "%.2e");
         drawTableLabel("Y:");
-        ImGui::InputDouble("##Y", &universe.camera->center.y, 0.0, 0.0, "%.2e");
+        ImGui::InputDouble("##Y", &cam->center.y, 0.0, 0.0, "%.2e");
         drawTableLabel("Z:");
-        ImGui::InputDouble("##Z", &universe.camera->center.z, 0.0, 0.0, "%.2e");
+        ImGui::InputDouble("##Z", &cam->center.z, 0.0, 0.0, "%.2e");
         drawTableLabel("Zoom:");
-        ImGui::InputDouble("##zoom", &universe.camera->distance, 0.0, 0.0, "%.2e");
+        ImGui::InputDouble("##zoom", &cam->distance, 0.0, 0.0, "%.2e");
         drawTableLabel("Rotatio_X");
-        ImGui::InputDouble("##rotX", &universe.camera->x_angle, 0.0, 0.0);
+        ImGui::InputDouble("##rotX", &cam->x_angle, 0.0, 0.0);
         drawTableLabel("Rotatio_Z");
-        ImGui::InputDouble("##rotZ", &universe.camera->z_angle, 0.0, 0.0);
+        ImGui::InputDouble("##rotZ", &cam->z_angle, 0.0, 0.0);
 
         ImGui::EndTable();
         ImGui::EndChild();
         ImGui::PopFont();
     }
-
+}
+void SceneWidget::updateRenderingFloating(Universe &universe)
+{
     //////////////////
     /// Rendering Child
     //////////////////
-    const float RENDERING_HEIGHT = 100.0f;
 
     if (ImGui::CollapsingHeader("Rendering"))
     {
@@ -295,47 +306,101 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
         ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
 
         drawTableLabel("Scaled:");
-        ImGui::Checkbox("##isScale", &camera.settings.is_scaled_body_size);
+        ImGui::Checkbox("##isScale", &cam->settings.is_scaled_body_size);
 
-        if (camera.settings.is_scaled_body_size)
+        if (cam->settings.is_scaled_body_size)
         {
             drawTableLabel("");
-            ImGui::InputDouble("##scale_size", &camera.settings.body_scale);
+            ImGui::InputDouble("##scale_size", &cam->settings.body_scale);
         }
 
         drawTableLabel("Fixed Size:");
-        ImGui::Checkbox("##isFixed", &camera.settings.is_fixed_body_size);
+        ImGui::Checkbox("##isFixed", &cam->settings.is_fixed_body_size);
 
-        if (camera.settings.is_fixed_body_size)
+        if (cam->settings.is_fixed_body_size)
         {
             drawTableLabel("");
-            ImGui::InputDouble("##fixed_size", &camera.settings.fixed_size, 0.1, 0.1, "%.2f");
+            ImGui::InputDouble("##fixed_size", &cam->settings.fixed_size, 0.1, 0.1, "%.2f");
         }
 
         drawTableLabel("Grid:");
-        ImGui::Checkbox("##grid", &camera.settings.is_render_grid);
+        ImGui::Checkbox("##grid", &cam->settings.is_render_grid);
 
         drawTableLabel("Stars:");
-        ImGui::Checkbox("##stars", &camera.settings.is_render_stars);
+        ImGui::Checkbox("##stars", &cam->settings.is_render_stars);
 
         drawTableLabel("Fancy:");
-        ImGui::Checkbox("##fancy", &camera.settings.is_render_fancy);
+        ImGui::Checkbox("##fancy", &cam->settings.is_render_fancy);
 
         drawTableLabel("Perspective:");
-        ImGui::Checkbox("##perspective", &camera.settings.is_render_perspective);
+        ImGui::Checkbox("##perspective", &cam->settings.is_render_perspective);
+
+        drawTableLabel("Gravity Field:");
+        ImGui::Checkbox("##field", &cam->settings.is_render_gravity_field);
 
         ImGui::EndTable();
 
         ImGui::EndChild();
         ImGui::PopFont();
     }
-    ImGui::PopStyleColor();
-    ImGui::EndChild();
+}
 
-    /////////////////
-    /// Bodies Window
-    /////////////////
+void SceneWidget::updateSelectionWin(Universe &universe)
+{
+    ImGui::Begin("Selection");
+    {
+        // Selected body
+        auto pair_selected = universe.getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
+        auto &body_selected = pair_selected.first;
+        auto &body_property = pair_selected.second;
+        if (body_selected.id != 0)
+        {
 
+            if (ImGui::BeginTable("##SelectionTable", 2, ImGuiTableFlags_RowBg))
+            {
+                ImGui::TableSetupColumn("L", ImGuiTableColumnFlags_WidthFixed, 65.0f);
+                ImGui::TableSetupColumn("V", ImGuiTableColumnFlags_WidthStretch);
+
+                auto PropertyRow = [](const char *label, const char *id, double val)
+                {
+                    ImGui::TableNextRow();
+                    ImGui::TableNextColumn();
+                    ImGui::AlignTextToFramePadding();
+                    ImGui::Text("%s", label);
+                    ImGui::TableNextColumn();
+                    ImGui::SetNextItemWidth(-1);
+                    ImGui::InputDouble(id, &val, 0.0, 0.0, "%.2e", ImGuiInputTextFlags_ReadOnly);
+                };
+                drawTableLabel("Name:");
+                ImGui::InputText("##name", &body_property.name, ImGuiInputTextFlags_ReadOnly);
+
+                drawTableLabel("ID:");
+                int id = static_cast<int>(body_selected.id);
+                ImGui::InputInt("##id", &id, 0.0, 0.0, ImGuiInputTextFlags_ReadOnly);
+
+                PropertyRow("Mass:", "##mass", body_selected.mass);
+                PropertyRow("Pos X:", "##px", body_selected.pos.x);
+                PropertyRow("Pos Y:", "##py", body_selected.pos.y);
+                PropertyRow("Pos Z:", "##pz", body_selected.pos.z);
+                PropertyRow("Vel X:", "##vx", body_selected.vel.x);
+                PropertyRow("Vel Y:", "##vy", body_selected.vel.y);
+                PropertyRow("Vel Z:", "##vz", body_selected.vel.z);
+
+                drawTableLabel("Lock camera: ");
+                if (ImGui::Button("Lock"))
+                {
+                    cam->settings.locked_body_id = this->selected_body_id;
+                }
+
+                ImGui::EndTable();
+            }
+        }
+    }
+    ImGui::End();
+}
+
+void SceneWidget::updateBodiesWin(Universe &universe)
+{
     ImGui::Begin("Bodies");
     {
         auto env = universe.env->getEnvironment_safe();
@@ -355,374 +420,290 @@ void SceneWidget::update(phys::Universe &universe, bool should_clear)
                 std::string button_text = std::format("{} ({})", prop.name, body.id);
                 if (ImGui::Button(button_text.c_str(), ImVec2(-FLT_MIN, 0.0f)))
                 {
-                    camera.center = body.pos;
-                    camera.distance = prop.size.x * 3.0;
-                    camera.settings.locked_body_id = body.id;
+                    cam->center = body.pos;
+                    cam->distance = prop.size.x * 3.0;
+                    cam->settings.locked_body_id = body.id;
                     selected_body_id = body.id;
                 }
             }
             ImGui::EndTable();
         }
         ImGui::End();
+    }
+}
 
-        ImGui::Begin("Selection");
+void PhysTable(phys::Body &editing_body)
+{
+    if (ImGui::BeginTable("Phys Table", 2, ImGuiTableFlags_SizingStretchSame, ImVec2(400, 0)))
+    {
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Mass:");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputDouble("##mass", &editing_body.mass, 0.0, 0.0, "%.2e");
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Locked:");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::Checkbox("##lock", &editing_body.is_locked);
+
+        ImGui::EndTable();
+    }
+}
+
+void KinematicTable(phys::Body &editing_body)
+{
+    if (ImGui::BeginTable("CordsTable", 2, ImGuiTableFlags_SizingStretchSame, ImVec2(400, 0)))
+    {
+
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("X:");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputDouble("##x_body", &editing_body.pos.x, 0.0, 0.0, "%.2e");
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Y:");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputDouble("##y_body", &editing_body.pos.y, 0.0, 0.0, "%.2e");
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Z:");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputDouble("##z_body", &editing_body.pos.z, 0.0, 0.0, "%.2e");
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("X_vel:");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputDouble("##x_vel", &editing_body.vel.x, 0.0, 0.0, "%.2e");
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Y_vel");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputDouble("##y_vel", &editing_body.vel.y, 0.0, 0.0, "%.2e");
+
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Z_vel");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputDouble("##z_vel", &editing_body.vel.z, 0.0, 0.0, "%.2e");
+
+        ImGui::EndTable();
+    }
+}
+
+void PropertyTable(phys::Property &editing_property)
+{
+    if (ImGui::BeginTable("PropertyTable", 2, ImGuiTableFlags_SizingStretchSame, ImVec2(400, 0)))
+    {
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+
+        // Color
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Color");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::ColorEdit4("##color", reinterpret_cast<float *>(&editing_property.color));
+
+        // Size X
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Size X:");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputDouble("##x_size", &editing_property.size.x, 0.0, 0.0, "%.2e");
+
+        // Size Y
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Size Y:");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputDouble("##y_size", &editing_property.size.y, 0.0, 0.0, "%.2e");
+
+        // Size Z
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Size Z:");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputDouble("##z_size", &editing_property.size.z, 0.0, 0.0, "%.2e");
+
+        // Tilt
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Tilt:");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputFloat("##tilt", &editing_property.tilt, 0.0, 0.0, "%.2e");
+
+        // Rotation
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Rotation:");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputFloat("##rotation_start", &editing_property.rotation_start, 0.0, 0.0, "%.2e");
+
+        // Rotation Speed
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Rotation Speed:");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputFloat("##rotation_speed", &editing_property.rotation_velocity, 0.0, 0.0, "%.2e");
+
+        // Brightness
+        ImGui::TableNextRow();
+        ImGui::TableSetColumnIndex(0);
+        ImGui::Text("Brightness:");
+        ImGui::TableSetColumnIndex(1);
+        ImGui::SetNextItemWidth(-FLT_MIN);
+        ImGui::InputFloat("##brightness", &editing_property.brightness, 0.0, 0.0, "%.2e");
+
+        ImGui::EndTable();
+    }
+}
+
+void SceneWidget::updateBodyPopup(Universe &universe)
+{
+
+    if (ImGui::BeginPopup("Body"))
+    {
+        if (ImGui::Button("Edit"))
         {
-            // Selected body
-            auto pair_selected = universe.getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
-            auto &body_selected = pair_selected.first;
-            auto &body_property = pair_selected.second;
-            if (body_selected.id != 0)
+            this->editing_pair = universe.getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
+            ImGui::OpenPopup("Edit_Pop");
+        };
+
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        if (ImGui::BeginPopupModal("Edit_Pop", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            auto &editing_body = editing_pair.first;
+
+            PhysTable(editing_body);
+            KinematicTable(editing_body);
+
+            ImGui::SetNextItemWidth(400);
+            if (ImGui::CollapsingHeader("Property"))
             {
+                auto &editing_property = editing_pair.second;
 
-                if (ImGui::BeginTable("##SelectionTable", 2, ImGuiTableFlags_RowBg))
-                {
-                    ImGui::TableSetupColumn("L", ImGuiTableColumnFlags_WidthFixed, 65.0f);
-                    ImGui::TableSetupColumn("V", ImGuiTableColumnFlags_WidthStretch);
-
-                    auto PropertyRow = [](const char *label, const char *id, double val)
-                    {
-                        ImGui::TableNextRow();
-                        ImGui::TableNextColumn();
-                        ImGui::AlignTextToFramePadding();
-                        ImGui::Text("%s", label);
-                        ImGui::TableNextColumn();
-                        ImGui::SetNextItemWidth(-1);
-                        ImGui::InputDouble(id, &val, 0.0, 0.0, "%.2e", ImGuiInputTextFlags_ReadOnly);
-                    };
-                    drawTableLabel("Name:");
-                    ImGui::InputText("##name", &body_property.name, ImGuiInputTextFlags_ReadOnly);
-
-                    drawTableLabel("ID:");
-                    int id = static_cast<int>(body_selected.id);
-                    ImGui::InputInt("##id", &id, 0.0, 0.0, ImGuiInputTextFlags_ReadOnly);
-
-                    PropertyRow("Mass:", "##mass", body_selected.mass);
-                    PropertyRow("Pos X:", "##px", body_selected.pos.x);
-                    PropertyRow("Pos Y:", "##py", body_selected.pos.y);
-                    PropertyRow("Pos Z:", "##pz", body_selected.pos.z);
-                    PropertyRow("Vel X:", "##vx", body_selected.vel.x);
-                    PropertyRow("Vel Y:", "##vy", body_selected.vel.y);
-                    PropertyRow("Vel Z:", "##vz", body_selected.vel.z);
-
-                    drawTableLabel("Lock camera: ");
-                    if (ImGui::Button("Lock"))
-                    {
-                        cam.settings.locked_body_id = this->selected_body_id;
-                    }
-
-                    ImGui::EndTable();
-                }
+                PropertyTable(editing_property);
             }
-        }
-        ImGui::End();
-
-        // popup
-
-        if (ImGui::BeginPopup("Body"))
-        {
-            if (ImGui::Button("Edit"))
+            if (ImGui::Button("Configure"))
             {
-                this->editing_pair = universe.getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
-                ImGui::OpenPopup("Edit_Pop");
+                auto res = universe.setBody(selected_body_id, this->editing_pair);
+                if (!res)
+                {
+                    phys::showMessage(res.error().c_str());
+                }
+                ImGui::CloseCurrentPopup();
             };
-
-            if (ImGui::Button("Delete"))
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel"))
             {
-            }
-
-            ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-            ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-            if (ImGui::BeginPopupModal("Edit_Pop", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-            {
-                auto &editing_body = editing_pair.first;
-
-                ImGui::Text("Mass:");
-                ImGui::SameLine();
-                ImGui::InputDouble("##mass", &editing_body.mass, 0.0, 0.0, "%.2e");
-                ImGui::Text("Locked:");
-                ImGui::SameLine();
-                ImGui::Checkbox("##lock", &editing_body.is_locked);
-                ImGui::Text("X:");
-                ImGui::SameLine();
-                ImGui::InputDouble("##x_body", &editing_body.pos.x, 0.0, 0.0, "%.2e");
-                ImGui::Text("Y:");
-                ImGui::SameLine();
-                ImGui::InputDouble("##y_body", &editing_body.pos.y, 0.0, 0.0, "%.2e");
-                ImGui::Text("Z:");
-                ImGui::SameLine();
-                ImGui::InputDouble("##z_body", &editing_body.pos.z, 0.0, 0.0, "%.2e");
-                ImGui::Text("X_vel:");
-                ImGui::SameLine();
-                ImGui::InputDouble("##x_vel", &editing_body.vel.x, 0.0, 0.0, "%.2e");
-                ImGui::Text("Y_vel");
-                ImGui::SameLine();
-                ImGui::InputDouble("##y_vel", &editing_body.vel.y, 0.0, 0.0, "%.2e");
-                ImGui::Text("Z_vel");
-                ImGui::SameLine();
-                ImGui::InputDouble("##z_vel", &editing_body.vel.z, 0.0, 0.0, "%.2e");
-
-                if (ImGui::CollapsingHeader("Property"))
-                {
-                    auto &editing_property = editing_pair.second;
-
-                    if (ImGui::BeginTable("PropertyTable", 4, ImGuiTableFlags_SizingStretchSame))
-                    {
-                        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch);
-                        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
-                        ImGui::TableSetupColumn("Div", ImGuiTableColumnFlags_WidthFixed);
-                        ImGui::TableSetupColumn("Mul", ImGuiTableColumnFlags_WidthFixed);
-
-                        float btn_width = ImGui::GetFrameHeight() * 1.8f;
-
-                        // Color
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Color");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::ColorEdit4("##color", reinterpret_cast<float *>(&editing_property.color));
-
-                        // Size X
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Size X:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputDouble("##x_size", &editing_property.size.x, 0.0, 0.0, "%.2e");
-
-                        // Size Y
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Size Y:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputDouble("##y_size", &editing_property.size.y, 0.0, 0.0, "%.2e");
-
-                        // Size Z
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Size Z:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputDouble("##z_size", &editing_property.size.z, 0.0, 0.0, "%.2e");
-
-                        // Tilt
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Tilt:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputFloat("##tilt", &editing_property.tilt, 0.0, 0.0, "%.2e");
-
-                        // Rotation
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Rotation:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputFloat("##rotation_start", &editing_property.rotation_start, 0.0, 0.0, "%.2e");
-
-                        // Rotation Speed
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Rotation Speed:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputFloat("##rotation_speed", &editing_property.rotation_velocity, 0.0, 0.0, "%.2e");
-                        ImGui::TableSetColumnIndex(2);
-                        if (ImGui::Button("/1.5##rot_speed", ImVec2(btn_width, 0)))
-                            editing_property.rotation_velocity /= 1.5f;
-                        ImGui::TableSetColumnIndex(3);
-                        if (ImGui::Button("x1.5##rot_speed", ImVec2(btn_width, 0)))
-                            editing_property.rotation_velocity *= 1.5f;
-
-                        // Brightness
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Brightness:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputFloat("##brightness", &editing_property.brightness, 0.0, 0.0, "%.2e");
-
-                        ImGui::EndTable();
-                    }
-                }
-                if (ImGui::Button("Configure"))
-                {
-                    auto res = universe.setBody(selected_body_id, this->editing_pair);
-                    if (!res)
-                    {
-                        phys::showMessage(res.error().c_str());
-                    }
-                    ImGui::CloseCurrentPopup();
-                };
-                ImGui::SameLine();
-                if (ImGui::Button("Cancel"))
-                {
-                    ImGui::CloseCurrentPopup();
-                };
-
-                ImGui::EndPopup();
-            }
+                ImGui::CloseCurrentPopup();
+            };
 
             ImGui::EndPopup();
         }
 
-        if (ImGui::BeginPopup("World"))
+        ImGui::EndPopup();
+    }
+}
+
+void SceneWidget::updateWorldPopup(Universe &universe)
+{
+    if (ImGui::BeginPopup("World"))
+    {
+        if (ImGui::Button("Summon"))
         {
-            if (ImGui::Button("Summon"))
-            {
-                this->editing_pair = universe.getBody(1).value_or(std::pair<Body, Property>{});
-                this->editing_pair.first.pos = this->click_pos_world;
-                this->editing_pair.first.pos.z = 0.0;
-                ImGui::OpenPopup("Summon");
-            };
+            this->editing_pair = universe.getBody(1).value_or(std::pair<Body, Property>{});
+            this->editing_pair.first.pos = this->click_pos_world;
+            this->editing_pair.first.pos.z = 0.0;
+            ImGui::OpenPopup("Summon");
+        };
 
-            // SUMMON
-            ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-            ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-            if (ImGui::BeginPopupModal("Summon", NULL, ImGuiWindowFlags_AlwaysAutoResize))
-            {
+        // SUMMON
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+        if (ImGui::BeginPopupModal("Summon", NULL, ImGuiWindowFlags_AlwaysAutoResize))
+        {
+            auto &editing_body = editing_pair.first;
+            auto &editing_property = editing_pair.second;
+            auto env = universe.env->getEnvironment_safe();
+            auto properties = universe.properties;
 
-                auto &editing_body = editing_pair.first;
-                ImGui::Text("Mass:");
-                ImGui::SameLine();
-                ImGui::InputDouble("##mass", &editing_body.mass, 0.0, 0.0, "%.2e");
-                ImGui::Text("Locked:");
-                ImGui::SameLine();
-                ImGui::Checkbox("##lock", &editing_body.is_locked);
-                ImGui::Text("X:");
-                ImGui::SameLine();
-                ImGui::InputDouble("##x_body", &editing_body.pos.x, 0.0, 0.0, "%.2e");
-                ImGui::Text("Y:");
-                ImGui::SameLine();
-                ImGui::InputDouble("##y_body", &editing_body.pos.y, 0.0, 0.0, "%.2e");
-                ImGui::Text("Z:");
-                ImGui::SameLine();
-                ImGui::InputDouble("##z_body", &editing_body.pos.z, 0.0, 0.0, "%.2e");
-                ImGui::Text("X_vel:");
-                ImGui::SameLine();
-                ImGui::InputDouble("##x_vel", &editing_body.vel.x, 0.0, 0.0, "%.2e");
-                ImGui::Text("Y_vel");
-                ImGui::SameLine();
-                ImGui::InputDouble("##y_vel", &editing_body.vel.y, 0.0, 0.0, "%.2e");
-                ImGui::Text("Z_vel");
-                ImGui::SameLine();
-                ImGui::InputDouble("##z_vel", &editing_body.vel.z, 0.0, 0.0, "%.2e");
-                if (ImGui::CollapsingHeader("Property"))
+            if (ImGui::CollapsingHeader("Presets"))
+            {
+                for (auto [body, property] : std::views::zip(env.bodies, properties))
                 {
-                    auto &editing_property = editing_pair.second;
-
-                    if (ImGui::BeginTable("PropertyTable", 4, ImGuiTableFlags_SizingStretchSame))
+                    if (ImGui::Button(std::format("{}. {}", body.id, property.name).c_str(), ImVec2(-1, 0)))
                     {
-                        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch);
-                        ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
-                        ImGui::TableSetupColumn("Div", ImGuiTableColumnFlags_WidthFixed);
-                        ImGui::TableSetupColumn("Mul", ImGuiTableColumnFlags_WidthFixed);
 
-                        float btn_width = ImGui::GetFrameHeight() * 1.8f;
-
-                        // Color
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Color");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::ColorEdit4("##color", reinterpret_cast<float *>(&editing_property.color));
-
-                        // Size X
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Size X:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputDouble("##x_size", &editing_property.size.x, 0.0, 0.0, "%.2e");
-
-                        // Size Y
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Size Y:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputDouble("##y_size", &editing_property.size.y, 0.0, 0.0, "%.2e");
-
-                        // Size Z
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Size Z:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputDouble("##z_size", &editing_property.size.z, 0.0, 0.0, "%.2e");
-
-                        // Tilt
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Tilt:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputFloat("##tilt", &editing_property.tilt, 0.0, 0.0, "%.2e");
-
-                        // Rotation
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Rotation:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputFloat("##rotation_start", &editing_property.rotation_start, 0.0, 0.0, "%.2e");
-
-                        // Rotation Speed
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Rotation Speed:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputFloat("##rotation_speed", &editing_property.rotation_velocity, 0.0, 0.0, "%.2e");
-                        ImGui::TableSetColumnIndex(2);
-                        if (ImGui::Button("/1.5##rot_speed", ImVec2(btn_width, 0)))
-                            editing_property.rotation_velocity /= 1.5f;
-                        ImGui::TableSetColumnIndex(3);
-                        if (ImGui::Button("x1.5##rot_speed", ImVec2(btn_width, 0)))
-                            editing_property.rotation_velocity *= 1.5f;
-
-                        // Brightness
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Text("Brightness:");
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::SetNextItemWidth(-FLT_MIN);
-                        ImGui::InputFloat("##brightness", &editing_property.brightness, 0.0, 0.0, "%.2e");
-
-                        ImGui::EndTable();
+                        this->editing_pair = universe.getBody(body.id).value_or(std::pair<Body, Property>{});
+                        this->editing_pair.first.pos = this->click_pos_world;
+                        this->editing_pair.first.pos.z = 0.0;
+                        ImGuiID id = ImGui::GetID("Presets");
+                        ImGui::GetStateStorage()->SetInt(id, 0);
                     }
                 }
-
-                if (ImGui::Button("Confirm"))
-                {
-                    universe.addBody(editing_pair.first, editing_pair.second);
-                    ImGui::CloseCurrentPopup();
-                };
-                ImGui::SameLine();
-
-                if (ImGui::Button("Cancel"))
-                {
-                    ImGui::CloseCurrentPopup();
-                };
-                ImGui::EndPopup();
             }
+
+            ImGui::Separator();
+
+            if (ImGui::CollapsingHeader("Physics Properties"))
+            {
+                PhysTable(editing_body);
+            }
+
+            if (ImGui::CollapsingHeader("Kinematics"))
+            {
+                KinematicTable(editing_body);
+            }
+
+            if (ImGui::CollapsingHeader("Property"))
+            {
+                PropertyTable(editing_property);
+            }
+
+            if (ImGui::Button("Confirm"))
+            {
+                universe.addBody(editing_pair.first, editing_pair.second);
+                ImGui::CloseCurrentPopup();
+            };
+            ImGui::SameLine();
+
+            if (ImGui::Button("Cancel"))
+            {
+                ImGui::CloseCurrentPopup();
+            };
             ImGui::EndPopup();
         }
-    }
-
-    if (cam.settings.locked_body_id != 0)
-    {
-        auto pair_selected = universe.getBody(this->selected_body_id).value_or(std::pair<Body, Property>{});
-        auto body_selected = pair_selected.first;
-        auto property_selected = pair_selected.second;
-        cam.settings.minimum_camera_distance = property_selected.size.z;
-    }
-    else
-    {
-        cam.settings.minimum_camera_distance = 0.0;
+        ImGui::EndPopup();
     }
 }
 
@@ -738,7 +719,7 @@ void UniverseWidget::update(bool should_clear)
         ImGui::Text("Uninitialised Universe");
         return;
     }
-    SceneWidget::update(*this->universe, should_clear);
+    SceneWidget::update(*this->universe);
 }
 
 AlmagationWidget::AlmagationWidget(AppContext &context) : UniverseWidget(context)

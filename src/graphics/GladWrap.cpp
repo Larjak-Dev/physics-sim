@@ -5,6 +5,7 @@
 #include <SFML/Graphics/Image.hpp>
 #include <fstream>
 #include <glad.h>
+#include <iostream>
 #include <ranges>
 #include <sstream>
 
@@ -25,6 +26,10 @@ Texture::~Texture()
 
 void Texture::resize(vec2u size)
 {
+#ifndef NDEBUG
+    std::cout << std::format("Resized Texture to {}, {} \n", size.x, size.y);
+
+#endif
     glDeleteTextures(1, &texture_id);
 
     glCreateTextures(GL_TEXTURE_2D, 1, &this->texture_id);
@@ -96,8 +101,15 @@ FrameBuffer::~FrameBuffer()
 
 void FrameBuffer::resize(vec2u size)
 {
+
     if (this->size == size)
         return;
+
+#ifndef NDEBUG
+    std::cout << std::format("Resized Frame Buffer to {}, {} \n", size.x, size.y);
+
+#endif
+
     this->size = size;
     glDeleteFramebuffers(1, &this->fbo_id);
     glCreateFramebuffers(1, &this->fbo_id);

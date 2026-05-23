@@ -28,6 +28,7 @@ UniverseConfig createFreeFall(double acceleration);
 
 phys::Universe createUniverse(const UniverseConfig config);
 bool checkKinematicValidityOfUniverse(const Universe &universe, UniverseConfig config);
+void prepareBody(Body &body, double delta_time);
 void prepareEnvironment(EnvironmentBase &environment, UniverseConfig config, double delta_time);
 
 Body calcBody(UniverseConfig config, double time);

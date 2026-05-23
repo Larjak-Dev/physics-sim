@@ -15,7 +15,7 @@ class AppResources
 class GlResources
 {
   public:
-    static constexpr int grid_amount = 800;
+    static constexpr int grid_amount = 200;
     gl::ShaderMain mainShader{};
     gl::ShaderBasic shader_basic{};
     gl::ShaderBlur shader_blur{};

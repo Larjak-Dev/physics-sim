@@ -1,4 +1,5 @@
 #include "Universe.hpp"
+#include "physics/Kinematics.hpp"
 
 using namespace phys;
 
@@ -20,6 +21,7 @@ Universe Universe::copy() const
 
 void Universe::addBody(Body body, Property property)
 {
+    phys::prepareBody(body, this->physicConfig.step_config.delta_time);
     this->env->addBody(body);
     this->properties.push_back(property);
 }
@@ -47,6 +49,7 @@ std::expected<void, std::string> Universe::setBody(uint16_t bodyId, std::pair<Bo
         auto [body, index] = *result;
         if (index != -1 && index < (int)this->properties.size())
         {
+            phys::prepareBody(pair.first, this->physicConfig.step_config.delta_time);
             this->env->setBody(bodyId, pair.first);
             this->properties[index] = pair.second;
             return {};
