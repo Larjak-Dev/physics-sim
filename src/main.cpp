@@ -1,7 +1,10 @@
 #include "app/AppPhysics.hpp"
 #include "core/tools/Error.hpp"
-#include <filesystem>
 #include <iostream>
+
+#include <nfd.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #if defined(_WIN32)
 #include <SFML/Main.hpp>

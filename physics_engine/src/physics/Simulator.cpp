@@ -1,6 +1,7 @@
 #include "physics/Simulator.hpp"
 #include "core/Environment.hpp"
 #include "core/PhysicConfig.hpp"
+#include "physics/Engine.hpp"
 #include "physics/physics_functions/PhysicFunctions.hpp"
 #include <cmath>
 #include <mutex>
@@ -94,6 +95,7 @@ std::expected<void, std::string> Simulator::startSim(std::shared_ptr<Environment
             this->running_sim = true;
 
             const auto physic_functions = PhysicFunctions(physicConfig);
+            const auto engine = phys::EngineCollision(physic_functions);
             const double delta_time = physicConfig.step_config.delta_time;
             const double speed_config = physicConfig.step_config.speed;
             StepBuffer step_buffer;
@@ -106,7 +108,7 @@ std::expected<void, std::string> Simulator::startSim(std::shared_ptr<Environment
                 }
 
                 const auto env_copy = env_active->getEnvironment_safe();
-                const auto env_new = physic_functions.step(env_copy, delta_time, step_buffer);
+                const auto env_new = engine.step(env_copy, delta_time, step_buffer);
                 env_active->setEnvironment_safe(env_new);
 
                 double current_speed = speed_ref ? speed_ref->load() : this->speed.load();
@@ -149,6 +151,7 @@ std::expected<void, std::string> Simulator::startPreview(const Environment &env_
     recording->frames.emplace_back(static_cast<EnvironmentBase>(env_initial));
 
     const auto physic_functions = PhysicFunctions(physicConfig);
+    const auto engine = phys::EngineCollision(physic_functions);
     const double delta_time = physicConfig.step_config.delta_time;
     const double total_time = physicConfig.step_config.total_time;
     recording->total_time = total_time;
@@ -157,7 +160,7 @@ std::expected<void, std::string> Simulator::startPreview(const Environment &env_
         this->thread_preview.join();
 
     this->thread_preview = std::thread(
-        [this, recording, physic_functions, delta_time, total_time]()
+        [this, recording, physic_functions, delta_time, total_time, engine]()
         {
             recording->status = 2;
             this->running_preview = true;
@@ -177,7 +180,7 @@ std::expected<void, std::string> Simulator::startPreview(const Environment &env_
                 recording->completion = static_cast<uint16_t>(100 * recording->frames.back().passed_time / total_time);
 
                 const auto env_prev = recording->frames.back();
-                const auto env_new = physic_functions.step(env_prev, delta_time, step_buffer);
+                const auto env_new = engine.step(env_prev, delta_time, step_buffer);
                 recording->frames.emplace_back(env_new);
 
                 if (recording->on_step_callback)

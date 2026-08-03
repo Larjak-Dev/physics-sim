@@ -61,11 +61,16 @@ FetchContent_Declare(
     GIT_TAG        v1.91.1-docking
 )
 
-
 FetchContent_Declare(
     imgui-sfml
     GIT_REPOSITORY https://github.com/SFML/imgui-sfml.git
     GIT_TAG        v3.0
+)
+
+FetchContent_Declare(
+    files
+    GIT_REPOSITORY https://github.com/btzy/nativefiledialog-extended.git
+    GIT_TAG        v1.3.0
 )
 
 
@@ -104,6 +109,8 @@ set(IMGUI_SFML_IMGUI_DEMO ON)
 message(STATUS "Fetching imgui-sfml...")
 FetchContent_MakeAvailable(imgui-sfml)
 
+FetchContent_MakeAvailable(files)
+
 add_library(glad_loader STATIC external/glad/src/glad.c)
 target_include_directories(glad_loader PUBLIC
     "external/glad/include")
@@ -136,6 +143,8 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 )
 
 find_package(OpenGL REQUIRED)
+find_package(Boost REQUIRED)
+include_directories(${Boost_INCLUDE_DIRS})
 
 # --- Link
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -148,6 +157,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     glm::glm-header-only
     OpenXLSX::OpenXLSX
     glad_loader
+    Boost::boost
+    nfd
 )
 
 if(TARGET SFML::Main)

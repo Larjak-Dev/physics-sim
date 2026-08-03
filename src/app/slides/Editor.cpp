@@ -3,10 +3,15 @@
 #include "app/widgets/extra.hpp"
 #include "core/PhysicConfig.hpp"
 #include "core/tools/Debug.hpp"
+#include "core/tools/EnvStream.hpp"
 #include "core/tools/Error.hpp"
 #include "physics/Kinematics.hpp"
 #include "physics/PlanetAPI.hpp"
 #include <imgui.h>
+#include <nfd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/select.h>
 #include <utility>
 using namespace phys::app;
 
@@ -178,6 +183,91 @@ void Editor::tickSolarSystem(std::shared_ptr<Universe> &universe_main)
     }
 }
 
+std::filesystem::path file_open()
+{
+    std::filesystem::path path_;
+
+    NFD_Init();
+    nfdu8char_t *outPath;
+    nfdu8filteritem_t filters[1] = {{"JSON", "json"}};
+    nfdopendialogu8args_t args = {};
+    args.filterList = filters;
+    args.filterCount = 1;
+    args.defaultPath = "";
+    nfdresult_t result = NFD_OpenDialogU8_With(&outPath, &args);
+    if (result == NFD_OKAY)
+    {
+        path_ = std::filesystem::path{outPath};
+        NFD_FreePathU8(outPath);
+    }
+    else if (result == NFD_CANCEL)
+    {
+        puts("User pressed cancel.");
+    }
+    else
+    {
+        printf("Error: %s\n", NFD_GetError());
+    }
+    NFD_Quit();
+
+    return path_;
+}
+
+std::filesystem::path file_save()
+{
+    std::filesystem::path path_;
+
+    NFD_Init();
+    nfdu8char_t *outPath;
+    nfdu8filteritem_t filters[1] = {{"JSON", "json"}};
+    nfdsavedialogu8args_t args = {};
+    args.filterList = filters;
+    args.filterCount = 1;
+    args.defaultName = "Universe_1.json";
+    args.defaultPath = "";
+    nfdresult_t result = NFD_SaveDialogU8_With(&outPath, &args);
+    if (result == NFD_OKAY)
+    {
+        path_ = std::filesystem::path{outPath};
+        NFD_FreePathU8(outPath);
+    }
+    else if (result == NFD_CANCEL)
+    {
+        puts("User pressed cancel.");
+    }
+    else
+    {
+        printf("Error: %s\n", NFD_GetError());
+    }
+    NFD_Quit();
+
+    return path_;
+}
+
+void Editor::tickImportOutput(std::shared_ptr<Universe> &universe_main)
+{
+    phys::EnvStream stream;
+
+    if (ImGui::Button("Import"))
+    {
+        auto path = file_open();
+        auto result = stream.ImportFileToUni(*universe_main, path);
+        if (!result.has_value())
+        {
+            phys::showMessage(result.error().c_str());
+        }
+    }
+    if (ImGui::Button("Export"))
+    {
+        auto path = file_save();
+        auto result = stream.ExportUniToFile(*universe_main, path);
+        if (!result.has_value())
+        {
+            phys::showMessage(result.error().c_str());
+        }
+    }
+}
+
 void Editor::tickRightBar(std::shared_ptr<Universe> &universe_main)
 {
     // Config
@@ -194,7 +284,9 @@ void Editor::tickRightBar(std::shared_ptr<Universe> &universe_main)
         ImGui::TableSetColumnIndex(1);
         ImGui::SetNextItemWidth(-FLT_MIN);
         static const std::vector<std::pair<PresetType, const char *>> preset_types = {
-            {PresetType::Kinematic, "Calculated Kinematics"}, {PresetType::SolarSystem, "Solar Sytem"}};
+            {PresetType::Kinematic, "Calculated Kinematics"},
+            {PresetType::SolarSystem, "Solar Sytem"},
+            {PresetType::IO, "IO"}};
         EnumCombo("##preset", universe_type, preset_types);
 
         ImGui::EndTable();
@@ -209,6 +301,9 @@ void Editor::tickRightBar(std::shared_ptr<Universe> &universe_main)
         break;
     case phys::app::PresetType::SolarSystem:
         tickSolarSystem(universe_main);
+        break;
+    case phys::app::PresetType::IO:
+        tickImportOutput(universe_main);
         break;
     }
     ImGui::End();

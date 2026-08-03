@@ -85,7 +85,7 @@ struct StepConfig
 };
 
 /////////
-/// PhysicsConfig used as a config for generating PhysicsFunctions used for simulating
+/// PhysicsConfig are used as a config for generating PhysicsFunctions used for simulating
 /// ForceConfig, StepConfing are used to create modular realtime generated PhysicsFunctions.
 /// PhysicsConfig_TemplatedTypes are set to use a precompiled templated PhysicsFunction.
 /////////

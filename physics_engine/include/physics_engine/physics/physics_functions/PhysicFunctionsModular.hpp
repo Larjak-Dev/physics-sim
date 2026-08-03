@@ -15,6 +15,7 @@ using ForceFunc = vec3d (*)(vec3d, const Body &, const EnvironmentBase &);
 using AccelFunc = vec3d (*)(vec3d, const Body &, const EnvironmentBase &);
 using StepFunc = EnvironmentBase (*)(const EnvironmentBase &, double, StepBuffer &);
 
+ForceFunction createNullForceFunction();
 ForceFunction createNewtonianForceFunction(double G);
 ForceFunction createFreeFallForceFunction(double g);
 AccelerationFunction createAccelerationFunction(ForceFunction forceFunction);

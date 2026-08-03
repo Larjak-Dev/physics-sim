@@ -8,6 +8,20 @@
 namespace phys
 {
 
+inline void resetForceAdditional(EnvironmentBase &env, double delta_time, StepBuffer &buffer)
+{
+    for (Body &body : env.bodies)
+    {
+        body.force_additional = {0, 0, 0};
+    }
+}
+
+inline vec3d NullForceFunc(vec3d pos, const Body &self, const EnvironmentBase &env)
+{
+    vec3d F_total{};
+    return F_total;
+}
+
 template <double G> inline vec3d NewtonianForceFunc(vec3d pos, const Body &self, const EnvironmentBase &env)
 {
 
@@ -33,7 +47,7 @@ template <double g> inline vec3d FreeFallForceFunc(vec3d pos, const Body &self, 
 
 template <auto ForceFunc> vec3d AccelerationFunc(vec3d pos, const Body &self, const EnvironmentBase &env)
 {
-    const vec3d F = ForceFunc(pos, self, env);
+    const vec3d F = ForceFunc(pos, self, env) + self.force_additional;
     return F / self.mass;
 }
 
@@ -65,6 +79,7 @@ EnvironmentBase implicitEulerStepFunc(const EnvironmentBase &env, double delta_t
     }
 
     env_new.passed_time = env.passed_time + delta_time;
+    resetForceAdditional(env_new, delta_time, buffer);
     return env_new;
 }
 
@@ -95,6 +110,7 @@ EnvironmentBase verletStepFunc(const EnvironmentBase &env, double delta_time, St
     }
 
     env_new.passed_time = env.passed_time + delta_time;
+    resetForceAdditional(env_new, delta_time, buffer);
     return env_new;
 }
 
@@ -169,6 +185,7 @@ template <auto AccelFunc> EnvironmentBase RK4StepFunc(const EnvironmentBase &env
 
     auto env_new = advanceWithSum(env, derivates_1, derivates_2, derivates_3, derivates_4, delta_time);
     env_new.passed_time += delta_time;
+    resetForceAdditional(env_new, delta_time, buffer);
     return env_new;
 }
 

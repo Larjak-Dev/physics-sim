@@ -83,6 +83,7 @@ Universe phys::createUniverse(const UniverseConfig config)
         body_s.mass = 1.0;
         body_s.prev_pos = {0.0, 0.0, 0.0};
         body_s.vel = {0.0, 0.0, 0.0};
+        body_s.radius = 2;
         Property property_s;
         property_s.color = Color(1.0f, 0, 0, 1.0f);
         property_s.size = {2, 2, 2};
@@ -109,12 +110,15 @@ Universe phys::createUniverse(const UniverseConfig config)
         body_sat.mass = mass_sat;
         body_sat.vel = {0.0, vel_sat, 0.0};
         body_sat.is_locked = false;
+        body_sat.radius = distance * 0.2;
 
         Body body_planet;
         body_planet.pos = {0.0, 0.0, 0.0};
         body_planet.mass = mass_planet;
         body_planet.vel = {0.0, 0.0, 0.0};
         body_planet.is_locked = true;
+        body_planet.radius = distance * 0.4;
+        body_planet.elastic_factor = 0.3;
 
         Property property_sat;
         property_sat.color = Color(0.6, 0.6, 0.6);

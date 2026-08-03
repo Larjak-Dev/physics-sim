@@ -11,7 +11,8 @@ namespace phys::app
 enum class PresetType
 {
     Kinematic,
-    SolarSystem
+    SolarSystem,
+    IO
 };
 
 class Editor : public Slide
@@ -32,6 +33,7 @@ class Editor : public Slide
 
     void tickKinematic(std::shared_ptr<Universe> &universe_main);
     void tickSolarSystem(std::shared_ptr<Universe> &universe_main);
+    void tickImportOutput(std::shared_ptr<Universe> &universe_main);
 };
 
 } // namespace phys::app

@@ -41,6 +41,9 @@ PhysicFunctions::PhysicFunctions(PhysicConfig config)
     {
         switch (config.force_config.force_type)
         {
+        case phys::ForceType::Null:
+            initFuncs<NullForceFunc>(*this);
+            break;
         case phys::ForceType::FreeFall:
             initFuncs<FreeFallForceFunc<constants::ACCELERATION>>(*this);
             break;
@@ -57,6 +60,9 @@ PhysicFunctions::PhysicFunctions(PhysicConfig config)
 
         switch (config.force_config.force_type)
         {
+        case phys::ForceType::Null:
+            this->force_modular = createNullForceFunction();
+            break;
         case phys::ForceType::FreeFall:
             this->force_modular = createFreeFallForceFunction(config.force_config.freefall_config.g);
             break;
@@ -115,6 +121,8 @@ vec3d PhysicFunctions::force(vec3d pos, const Body &self, const EnvironmentBase 
 }
 vec3d PhysicFunctions::acceleration(vec3d pos, const Body &self, const EnvironmentBase &env) const
 {
+    if (self.is_locked)
+        return vec3d{};
 
     if (!this->config.force_config.use_compiled_templates)
     {

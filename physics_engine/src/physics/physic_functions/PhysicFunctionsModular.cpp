@@ -1,6 +1,7 @@
 #include "physics/physics_functions/PhysicFunctionsModular.hpp"
 #include "core/Environment.hpp"
 #include "core/PhysicConfig.hpp"
+#include "core/Units_basic.hpp"
 #include <glm/geometric.hpp>
 #include <ranges>
 #include <vector>
@@ -15,6 +16,24 @@ void StepBuffer::buffer(std::size_t size)
         this->der_2.resize(size);
         this->der_3.resize(size);
         this->der_4.resize(size);
+    }
+}
+
+vec3d forceAdditional(vec3d pos, const Body &self, const EnvironmentBase &env)
+{
+    return self.force_additional;
+}
+
+vec3d accelerationAdditional(vec3d pos, const Body &self, const EnvironmentBase &env)
+{
+    return self.force_additional / self.mass;
+}
+
+void resetForceAdditional(EnvironmentBase &env, double delta_time, StepBuffer &buffer)
+{
+    for (Body &body : env.bodies)
+    {
+        body.force_additional = {0, 0, 0};
     }
 }
 
@@ -53,7 +72,7 @@ AccelerationFunction phys::createAccelerationFunction(ForceFunction forceFunctio
     return AccelerationFunction(
         [forceFunction](vec3d pos, const Body &self, const EnvironmentBase &env)
         {
-            const vec3d F = forceFunction(pos, self, env);
+            const vec3d F = forceFunction(pos, self, env) + forceAdditional(pos, self, env);
             return F / self.mass;
         });
 }
@@ -89,6 +108,7 @@ StepFunction phys::createImplicitEulerStepFunction(AccelerationFunction accelera
             }
 
             env_new.passed_time = env.passed_time + delta_time;
+            resetForceAdditional(env_new, delta_time, buffer);
             return env_new;
         });
 }
@@ -127,6 +147,7 @@ StepFunction phys::createVerletStepFunction(AccelerationFunction accelerationFun
             }
 
             env_new.passed_time = env.passed_time + delta_time;
+            resetForceAdditional(env_new, delta_time, buffer);
             return env_new;
         });
 }
@@ -210,6 +231,14 @@ StepFunction phys::createRK4StepFunction(AccelerationFunction accelerationFuncti
 
             auto env_new = advanceWithSum(env, derivates_1, derivates_2, derivates_3, derivates_4, delta_time);
             env_new.passed_time += delta_time;
+
+            resetForceAdditional(env_new, delta_time, buffer);
             return env_new;
         });
+}
+
+ForceFunction phys::createNullForceFunction()
+{
+    return ForceFunction([](vec3d pos, const Body &self, const EnvironmentBase &env)
+                         { return forceAdditional(pos, self, env); });
 }

@@ -18,9 +18,16 @@ struct Body
     vec3d pos{};
     vec3d prev_pos{};
     vec3d vel{};
+
+    vec3d force_additional{}; // Additional force that gets applied for the next step, resets back to 0 when applied for
+                              // the step
+    vec3d force_currently{};  // Force that is currently applied
+
     double mass{1.0};
     uint16_t id{0};
     bool is_locked{false};
+    double radius{0.0};
+    double elastic_factor{1.0};
 
     void prepare(double deltaTime);
 };
